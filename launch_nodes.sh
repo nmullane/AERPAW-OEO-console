@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in {0..8}
+for i in {0..11}
 do
-    python3 node.py $i &
+    python3 agent.py $i &
 done
