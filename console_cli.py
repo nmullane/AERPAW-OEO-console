@@ -34,6 +34,27 @@ async def main():
 
                 print(event_str)
 
+        # data type ids from agent statuses to display
+        data_to_display = ["status", "velocity"]
+
+        def data_from_status(data_type: str, status):
+            print(status)
+
+        def status_to_table():
+            """Convert agent statuses into data to be displayed in a live table"""
+            # recreate events table
+            # TODO update this to not have to update the entire table
+            # doing this will require manipulating the cell data directly
+            for agent_id, status in logger.agent_statuses.items():
+                print(status)
+                for type in data_to_display:
+                    pass
+            return
+            new_events_table = create_events_table()
+            for key, value in logger.agent_statuses.items():
+                new_events_table.add_row(key, value)
+            live.update(new_events_table)
+
         # start the event logger to publish events
         status_q = asyncio.Queue()
         logger = await console_event_logger.main(status_q)
@@ -41,40 +62,10 @@ async def main():
         consumers = [asyncio.create_task(status_consumer(status_q)) for n in range(5)]
 
         while True:
+            # update the table content repeatedly
             await asyncio.sleep(0.5)
-            # recreate events table
-            # TODO update this to not have to update the entire table
-            # doing this will require manipulating the cell data directly
-            new_events_table = create_events_table()
-            for key, value in logger.agent_statuses.items():
-                new_events_table.add_row(key, value)
-            live.update(new_events_table)
-        # await asyncio.sleep(4)
-
-        # for i in range(12):
-        #     print(f"Doing something #{i}")
-        #     events_table.add_row(f"{i}: content so cool")
-        #     time.sleep(0.4)
+            status_to_table()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-# with Live(table, refresh_per_second=4) as live:  # update 4 times a second to feel fluid
-#     for row in range(12):
-#         live.console.print(f"Working on row #{row}")
-#         time.sleep(0.4)
-#         table.add_row(f"{row}", f"description {row}", "[red]ERROR")
-
-
-# layout = Layout()
-
-# layout.split_column(Layout(name="upper"), Layout(Console(), name="lower"))
-# layout["upper"].ratio = 3
-# layout["lower"].ratio = 1
-# print(layout)
-
-# console =
-# with console.pager():
-#     console.print(make_test_card())
