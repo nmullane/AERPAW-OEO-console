@@ -11,24 +11,35 @@ import json
 
 
 class EventLogger(Thread):
-    agent_statuses = {}
+
     # data to parse and store for every agent
-    data_to_display = ["status", "velocity"]
+    display_data_types = ["status", "velocity"]
+    # dict of data values for every display data type for each agent
+    # data is displayed in a live table
+    display_data_vals = {}
+
     # data to look for changes as events
     event_data_types = ["status"]
     # dict of values for all event types for each agent
     # changes in the stored values are printed as events
     event_vals = {}
 
-    def __init__(self, sub: mqtt.Client, q: asyncio.Queue, table, live):
+    def __init__(
+        self, sub: mqtt.Client, q: asyncio.Queue, table, live, display_data_types: List
+    ):
         Thread.__init__(self)
         self.q = q
         self.sub = sub
         self.table = table
         self.live = live
+        self.display_data_types = display_data_types
 
-        self.sub.connect("localhost", 1883)
-        self.sub.subscribe("cedalo/status")
+        try:
+            self.sub.connect("localhost", 1883)
+            self.sub.subscribe("cedalo/status")
+        except ConnectionRefusedError as e:
+            print(e)
+            raise Exception("MQTT not running!")
 
     # asyncronously wait for a new event to publish
     async def get_event(self):
@@ -85,12 +96,22 @@ class EventLogger(Thread):
                     # do nothing if the status hasn't changed
                     pass
 
+        # update data
+        for agent_id, status in msg.items():
+            for data_id in self.display_data_types:
+                display_data = self.data_from_status(data_id, status)
+                if not agent_id in self.display_data_vals:
+                    agent_display_vals = {data_id: display_data}
+                    self.display_data_vals[agent_id] = agent_display_vals
+                else:
+                    self.display_data_vals[agent_id][data_id] = display_data
+
         # print(self.agent_statuses)
 
 
-async def main(status_q: asyncio.Queue):
+async def main(status_q: asyncio.Queue, display_data_types):
     sub = mqtt.Client("console_status_sub")
-    logger = EventLogger(sub, status_q, None, None)
+    logger = EventLogger(sub, status_q, None, None, display_data_types)
     return logger
 
 
