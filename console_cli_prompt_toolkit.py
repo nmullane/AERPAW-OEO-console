@@ -12,6 +12,7 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.widgets import TextArea, Frame, Label
+from prompt_toolkit.document import Document
 
 # IO buffer
 buffer1 = Buffer()
@@ -40,7 +41,6 @@ from rich.table import Table
 
 # output_field = TextArea(style="class:output-field")
 # output_field = TextArea()
-output_field = Label(text="")
 
 # data type ids from agent statuses to display
 data_to_display = ["status", "velocity"]
@@ -66,17 +66,31 @@ def create_events_table():
 
 
 events_table = create_events_table()
+
+output_field = Label(text="")
 output_field.text = print_table_to_str(events_table)
+
+events_field = TextArea(read_only=True, height=5)
+
+input_field = TextArea(
+    height=1,
+    prompt=">>> ",
+    style="class:input-field",
+    multiline=False,
+    wrap_lines=False,
+)
 # display_str = "Subscribe: "
 
 
 async def main():
-    global output_field
+    global output_field, events_field
 
     async def status_consumer(q: asyncio.Queue):
+        global events_field
         while True:
             agent_id, event_str = await logger.get_event()
-            print(event_str)
+            events_field.text += "\n" + event_str
+            events_field.buffer._set_cursor_position(len(events_field.text))
 
     async def update_table():
         while True:
@@ -114,6 +128,7 @@ async def main():
 
     root_container = HSplit(
         [
+            events_field,
             # Display the text 'Hello world' on the top.
             output_field,
             # A horizontal line in the middle. We explicitly specify the height, to
@@ -123,11 +138,11 @@ async def main():
             Window(height=1, char="-"),
             # One window that holds the BufferControl with the default buffer on
             # the bottom.
-            Window(height=2, content=BufferControl(buffer=buffer1)),
+            input_field,
         ]
     )
 
-    layout = Layout(root_container)
+    layout = Layout(root_container, focused_element=input_field)
 
     app = Application(key_bindings=kb, layout=layout, full_screen=True)
     await app.run_async()
