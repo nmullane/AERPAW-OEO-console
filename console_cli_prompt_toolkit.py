@@ -85,6 +85,26 @@ input_field = TextArea(
 async def main():
     global output_field, events_field
 
+    root_container = HSplit(
+        [
+            events_field,
+            # Display the text 'Hello world' on the top.
+            output_field,
+            # A horizontal line in the middle. We explicitly specify the height, to
+            # make sure that the layout engine will not try to divide the whole
+            # width by three for all these windows. The window will simply fill its
+            # content by repeating this character.
+            Window(height=1, char="-"),
+            # One window that holds the BufferControl with the default buffer on
+            # the bottom.
+            input_field,
+        ]
+    )
+
+    layout = Layout(root_container, focused_element=input_field)
+
+    app = Application(key_bindings=kb, layout=layout, full_screen=True)
+
     async def status_consumer(q: asyncio.Queue):
         global events_field
         while True:
@@ -97,6 +117,7 @@ async def main():
             # update the table content repeatedly
             await asyncio.sleep(0.5)
             status_to_table()
+            app.invalidate()
 
     def status_to_table():
         """Convert agent statuses into data to be displayed in a live table"""
@@ -125,26 +146,6 @@ async def main():
     #         # start the io handler
     #         prompt = asyncio.create_task(prompt_coroutine())
     table_updated = asyncio.create_task(update_table())
-
-    root_container = HSplit(
-        [
-            events_field,
-            # Display the text 'Hello world' on the top.
-            output_field,
-            # A horizontal line in the middle. We explicitly specify the height, to
-            # make sure that the layout engine will not try to divide the whole
-            # width by three for all these windows. The window will simply fill its
-            # content by repeating this character.
-            Window(height=1, char="-"),
-            # One window that holds the BufferControl with the default buffer on
-            # the bottom.
-            input_field,
-        ]
-    )
-
-    layout = Layout(root_container, focused_element=input_field)
-
-    app = Application(key_bindings=kb, layout=layout, full_screen=True)
     await app.run_async()
 
 
