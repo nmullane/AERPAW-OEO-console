@@ -13,7 +13,7 @@ import json
 class EventLogger(Thread):
 
     # data to parse and store for every agent
-    display_data_types = ["status", "velocity"]
+    data_to_display = ["status", "velocity"]
     # dict of data values for every display data type for each agent
     # data is displayed in a live table
     display_data_vals = {}
@@ -25,14 +25,14 @@ class EventLogger(Thread):
     event_vals = {}
 
     def __init__(
-        self, sub: mqtt.Client, q: asyncio.Queue, table, live, display_data_types: List
+        self, sub: mqtt.Client, q: asyncio.Queue, table, live, data_to_display: List
     ):
         Thread.__init__(self)
         self.q = q
         self.sub = sub
         self.table = table
         self.live = live
-        self.display_data_types = display_data_types
+        self.data_to_display = data_to_display
 
         try:
             self.sub.connect("localhost", 1883)
@@ -98,7 +98,7 @@ class EventLogger(Thread):
 
         # update data
         for agent_id, status in msg.items():
-            for data_id in self.display_data_types:
+            for data_id in self.data_to_display:
                 display_data = self.data_from_status(data_id, status)
                 if not agent_id in self.display_data_vals:
                     agent_display_vals = {data_id: display_data}
@@ -109,9 +109,9 @@ class EventLogger(Thread):
         # print(self.agent_statuses)
 
 
-async def main(status_q: asyncio.Queue, display_data_types):
+async def main(status_q: asyncio.Queue, data_to_display):
     sub = mqtt.Client("console_status_sub")
-    logger = EventLogger(sub, status_q, None, None, display_data_types)
+    logger = EventLogger(sub, status_q, None, None, data_to_display)
     return logger
 
 

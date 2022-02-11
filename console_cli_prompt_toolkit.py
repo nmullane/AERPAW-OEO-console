@@ -14,38 +14,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.widgets import TextArea, Frame, Label
 from prompt_toolkit.document import Document
 
-# IO buffer
-buffer1 = Buffer()
-
-
-## Setup Keybindings
-kb = KeyBindings()
-
-
-@kb.add("c-c")
-def exit_(event):
-    """
-    Pressing Ctrl-Q will exit the user interface.
-
-    Setting a return value means: quit the event loop that drives the user
-    interface and return this value from the `Application.run()` call.
-    """
-    event.app.exit()
-
-
-# Test printing rich table
 from rich.console import Console
 from rich.table import Table
-
-# output_field.buffer.text = output
-
-# output_field = TextArea(style="class:output-field")
-# output_field = TextArea()
-
-# data type ids from agent statuses to display
-data_to_display = ["status", "velocity"]
-# data_to_display = ["velocity"]
-# data_to_display = ["status"]
 
 
 def print_table_to_str(table) -> str:
@@ -57,33 +27,57 @@ def print_table_to_str(table) -> str:
     return console.end_capture()
 
 
-def create_events_table():
+def create_events_table(data_to_display):
     events_table = Table(title=None, width=100, header_style=None, footer_style=None)
     events_table.add_column("ID")
     for data in data_to_display:
         events_table.add_column(data)
     return events_table
 
-
-events_table = create_events_table()
-
-output_field = Label(text="")
-output_field.text = print_table_to_str(events_table)
-
-events_field = TextArea(read_only=True, height=5)
-
-input_field = TextArea(
-    height=1,
-    prompt=">>> ",
-    style="class:input-field",
-    multiline=False,
-    wrap_lines=False,
-)
-# display_str = "Subscribe: "
+class CliApp:
+    data_to_display = ["status", "velocity", "status"]
+    def __init__(self):
 
 
 async def main():
-    global output_field, events_field
+    # data type ids from agent statuses to display
+    data_to_display = ["status", "velocity", "status"]
+    # data_to_display = ["velocity"]
+    # data_to_display = ["status"]
+
+    ## Setup Keybindings
+    kb = KeyBindings()
+
+    @kb.add("c-d")
+    def _exit(event):
+        """
+        Pressing Ctrl-Q will exit the user interface.
+
+        Setting a return value means: quit the event loop that drives the user
+        interface and return this value from the `Application.run()` call.
+        """
+        event.app.exit()
+
+    def accept(buff):
+        data_to_display = [input_field.text]
+        logger.data_to_display = data_to_display
+
+    events_table = create_events_table(data_to_display)
+
+    output_field = Label(text="")
+    output_field.text = print_table_to_str(events_table)
+
+    events_field = TextArea(read_only=True, height=5, scrollbar=True, focusable=False)
+
+    input_field = TextArea(
+        height=1,
+        prompt=">>> ",
+        style="class:input-field",
+        multiline=False,
+        wrap_lines=False,
+        focus_on_click=True,
+    )
+    input_field.accept_handler = accept
 
     root_container = HSplit(
         [
@@ -101,12 +95,18 @@ async def main():
         ]
     )
 
-    layout = Layout(root_container, focused_element=input_field)
+    layout = Layout(root_container)
 
-    app = Application(key_bindings=kb, layout=layout, full_screen=True)
+    app = Application(
+        key_bindings=kb, layout=layout, full_screen=True, mouse_support=True
+    )
 
-    async def status_consumer(q: asyncio.Queue):
-        global events_field
+    # TODO this isn't threadsafe
+    def print_event(msg: str):
+        events_field.text += "\n" + msg
+        events_field.buffer._set_cursor_position(len(events_field.text))
+
+    async def status_consumer():
         while True:
             agent_id, event_str = await logger.get_event()
             events_field.text += "\n" + event_str
@@ -129,10 +129,18 @@ async def main():
         #     for type in data_to_display:
         #         pass
         # return
-        new_events_table = create_events_table()
+        new_events_table = create_events_table(data_to_display)
         for agent_id, data_vals in logger.display_data_vals.items():
             vals = [val.__str__() for val in data_vals.values()]
-            new_events_table.add_row(agent_id, *vals)
+            display_vals = []
+            for data_id in data_to_display:
+                try:
+                    display_vals.append(str(data_vals[data_id]))
+                except KeyError:
+                    # TODO log this
+                    print_event("KEY ERROR")
+                    pass
+            new_events_table.add_row(agent_id, *display_vals)
 
         # Get new table to display
         output_field.text = print_table_to_str(new_events_table)
@@ -141,11 +149,8 @@ async def main():
     status_q = asyncio.Queue()
     logger = await console_event_logger.main(status_q, data_to_display)
     await logger.run()
-    consumers = [asyncio.create_task(status_consumer(status_q)) for n in range(5)]
-
-    #         # start the io handler
-    #         prompt = asyncio.create_task(prompt_coroutine())
-    table_updated = asyncio.create_task(update_table())
+    consumers = [asyncio.create_task(status_consumer()) for n in range(5)]
+    table_updater = asyncio.create_task(update_table())
     await app.run_async()
 
 
