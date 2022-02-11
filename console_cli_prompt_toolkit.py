@@ -34,92 +34,103 @@ def create_events_table(data_to_display):
         events_table.add_column(data)
     return events_table
 
+
 class CliApp:
-    data_to_display = ["status", "velocity", "status"]
-    def __init__(self):
-
-
-async def main():
     # data type ids from agent statuses to display
     data_to_display = ["status", "velocity", "status"]
     # data_to_display = ["velocity"]
     # data_to_display = ["status"]
 
-    ## Setup Keybindings
-    kb = KeyBindings()
+    def accept(self, buff):
+        self.data_to_display = [self.input_field.text]
+        self.logger.data_to_display = self.data_to_display
 
-    @kb.add("c-d")
-    def _exit(event):
-        """
-        Pressing Ctrl-Q will exit the user interface.
+    def __init__(self):
+        ## Setup Keybindings
+        self.kb = KeyBindings()
 
-        Setting a return value means: quit the event loop that drives the user
-        interface and return this value from the `Application.run()` call.
-        """
-        event.app.exit()
+        @self.kb.add("c-d")
+        def _exit(event):
+            """
+            Pressing Ctrl-Q will exit the user interface.
 
-    def accept(buff):
-        data_to_display = [input_field.text]
-        logger.data_to_display = data_to_display
+            Setting a return value means: quit the event loop that drives the user
+            interface and return this value from the `Application.run()` call.
+            """
+            event.app.exit()
 
-    events_table = create_events_table(data_to_display)
+        self.events_table = create_events_table(self.data_to_display)
 
-    output_field = Label(text="")
-    output_field.text = print_table_to_str(events_table)
+        self.output_field = Label(text="")
+        self.output_field.text = print_table_to_str(self.events_table)
 
-    events_field = TextArea(read_only=True, height=5, scrollbar=True, focusable=False)
+        self.events_field = TextArea(
+            read_only=True, height=5, scrollbar=True, focusable=False
+        )
 
-    input_field = TextArea(
-        height=1,
-        prompt=">>> ",
-        style="class:input-field",
-        multiline=False,
-        wrap_lines=False,
-        focus_on_click=True,
-    )
-    input_field.accept_handler = accept
+        self.input_field = TextArea(
+            height=1,
+            prompt=">>> ",
+            style="class:input-field",
+            multiline=False,
+            wrap_lines=False,
+            focus_on_click=True,
+        )
+        self.input_field.accept_handler = self.accept
 
-    root_container = HSplit(
-        [
-            events_field,
-            # Display the text 'Hello world' on the top.
-            output_field,
-            # A horizontal line in the middle. We explicitly specify the height, to
-            # make sure that the layout engine will not try to divide the whole
-            # width by three for all these windows. The window will simply fill its
-            # content by repeating this character.
-            Window(height=1, char="-"),
-            # One window that holds the BufferControl with the default buffer on
-            # the bottom.
-            input_field,
-        ]
-    )
+        root_container = HSplit(
+            [
+                self.events_field,
+                # Display the text 'Hello world' on the top.
+                self.output_field,
+                # A horizontal line in the middle. We explicitly specify the height, to
+                # make sure that the layout engine will not try to divide the whole
+                # width by three for all these windows. The window will simply fill its
+                # content by repeating this character.
+                Window(height=1, char="-"),
+                # One window that holds the BufferControl with the default buffer on
+                # the bottom.
+                self.input_field,
+            ]
+        )
 
-    layout = Layout(root_container)
+        self.layout = Layout(root_container)
 
-    app = Application(
-        key_bindings=kb, layout=layout, full_screen=True, mouse_support=True
-    )
+        self.app = Application(
+            key_bindings=self.kb,
+            layout=self.layout,
+            full_screen=True,
+            mouse_support=True,
+        )
+
+    async def run_app(self):
+        # start the event logger to publish events
+        status_q = asyncio.Queue()
+        self.logger = await console_event_logger.main(status_q, self.data_to_display)
+        await self.logger.run()
+        consumers = [asyncio.create_task(self.status_consumer()) for n in range(5)]
+        table_updater = asyncio.create_task(self.update_table())
+        await self.app.run_async()
 
     # TODO this isn't threadsafe
-    def print_event(msg: str):
-        events_field.text += "\n" + msg
-        events_field.buffer._set_cursor_position(len(events_field.text))
+    def print_event(self, msg: str):
+        self.events_field.text += "\n" + msg
+        self.events_field.buffer._set_cursor_position(len(self.events_field.text))
 
-    async def status_consumer():
+    async def status_consumer(self):
         while True:
-            agent_id, event_str = await logger.get_event()
-            events_field.text += "\n" + event_str
-            events_field.buffer._set_cursor_position(len(events_field.text))
+            agent_id, event_str = await self.logger.get_event()
+            self.events_field.text += "\n" + event_str
+            self.events_field.buffer._set_cursor_position(len(self.events_field.text))
 
-    async def update_table():
+    async def update_table(self):
         while True:
             # update the table content repeatedly
             await asyncio.sleep(0.5)
-            status_to_table()
-            app.invalidate()
+            self.status_to_table()
+            self.app.invalidate()
 
-    def status_to_table():
+    def status_to_table(self):
         """Convert agent statuses into data to be displayed in a live table"""
         # recreate events table
         # TODO update this to not have to update the entire table
@@ -129,30 +140,23 @@ async def main():
         #     for type in data_to_display:
         #         pass
         # return
-        new_events_table = create_events_table(data_to_display)
-        for agent_id, data_vals in logger.display_data_vals.items():
+        new_events_table = create_events_table(self.data_to_display)
+        for agent_id, data_vals in self.logger.display_data_vals.items():
             vals = [val.__str__() for val in data_vals.values()]
             display_vals = []
-            for data_id in data_to_display:
+            for data_id in self.data_to_display:
                 try:
                     display_vals.append(str(data_vals[data_id]))
                 except KeyError:
                     # TODO log this
-                    print_event("KEY ERROR")
+                    self.print_event("KEY ERROR")
                     pass
             new_events_table.add_row(agent_id, *display_vals)
 
         # Get new table to display
-        output_field.text = print_table_to_str(new_events_table)
-
-    # start the event logger to publish events
-    status_q = asyncio.Queue()
-    logger = await console_event_logger.main(status_q, data_to_display)
-    await logger.run()
-    consumers = [asyncio.create_task(status_consumer()) for n in range(5)]
-    table_updater = asyncio.create_task(update_table())
-    await app.run_async()
+        self.output_field.text = print_table_to_str(new_events_table)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app = CliApp()
+    asyncio.run(app.run_app())
