@@ -5,10 +5,18 @@ from sqlalchemy import true
 
 import console_event_logger
 
-from prompt_toolkit import Application
+from prompt_toolkit import Application, PromptSession
+from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.layout.containers import HSplit, VSplit, Window
+from prompt_toolkit.layout.containers import (
+    HSplit,
+    VSplit,
+    Window,
+    FloatContainer,
+    Float,
+)
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
+from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.widgets import TextArea, Frame, Label
@@ -16,6 +24,9 @@ from prompt_toolkit.document import Document
 
 from rich.console import Console
 from rich.table import Table
+
+# the autocompleter words
+data_completer = WordCompleter(["add", "del", "status", "velocity", "foo", "bar"])
 
 
 def print_table_to_str(table) -> str:
@@ -47,7 +58,10 @@ class CliApp:
 
     def __init__(self):
         ## Setup Keybindings
+        # app keybinds
         self.kb = KeyBindings()
+        # keybinds within input buffer
+        self.buffer_kb = KeyBindings()
 
         @self.kb.add("c-d")
         def _exit(event):
@@ -59,7 +73,21 @@ class CliApp:
             """
             event.app.exit()
 
+        @self.buffer_kb.add("c-m")
+        def _handle_input(event):
+            buf: BufferControl = self.input_field.content
+            
+            self.data_to_display = [buf.buffer.text]
+            self.logger.data_to_display = self.data_to_display
+
+            # reset buffer contents
+            buf.buffer.reset()
+
+
         self.events_table = create_events_table(self.data_to_display)
+
+        # The input buffer with autocompletion
+        self.buffer = Buffer(completer=data_completer, complete_while_typing=True)
 
         self.output_field = Label(text="")
         self.output_field.text = print_table_to_str(self.events_table)
@@ -68,30 +96,42 @@ class CliApp:
             read_only=True, height=5, scrollbar=True, focusable=False
         )
 
-        self.input_field = TextArea(
-            height=1,
-            prompt=">>> ",
-            style="class:input-field",
-            multiline=False,
-            wrap_lines=False,
-            focus_on_click=True,
+        self.input_field = Window(
+            BufferControl(buffer=self.buffer, key_bindings=self.buffer_kb), height=1
         )
-        self.input_field.accept_handler = self.accept
+        # self.input_field = TextArea(
+        #     height=1,
+        #     prompt=">>> ",
+        #     style="class:input-field",
+        #     multiline=False,
+        #     wrap_lines=False,
+        #     focus_on_click=True,
+        # )
+        # self.input_field.accept_handler = self.accept
 
-        root_container = HSplit(
-            [
-                self.events_field,
-                # Display the text 'Hello world' on the top.
-                self.output_field,
-                # A horizontal line in the middle. We explicitly specify the height, to
-                # make sure that the layout engine will not try to divide the whole
-                # width by three for all these windows. The window will simply fill its
-                # content by repeating this character.
-                Window(height=1, char="-"),
-                # One window that holds the BufferControl with the default buffer on
-                # the bottom.
-                self.input_field,
-            ]
+        root_container = FloatContainer(
+            content=HSplit(
+                [
+                    self.events_field,
+                    # Display the text 'Hello world' on the top.
+                    self.output_field,
+                    # A horizontal line in the middle. We explicitly specify the height, to
+                    # make sure that the layout engine will not try to divide the whole
+                    # width by three for all these windows. The window will simply fill its
+                    # content by repeating this character.
+                    Window(height=1, char="-"),
+                    # One window that holds the BufferControl with the default buffer on
+                    # the bottom.
+                    self.input_field,
+                ]
+            ),
+            floats=[
+                Float(
+                    xcursor=True,
+                    ycursor=True,
+                    content=CompletionsMenu(max_height=5, scroll_offset=-1),
+                )
+            ],
         )
 
         self.layout = Layout(root_container)
@@ -110,7 +150,11 @@ class CliApp:
         await self.logger.run()
         consumers = [asyncio.create_task(self.status_consumer()) for n in range(5)]
         table_updater = asyncio.create_task(self.update_table())
-        await self.app.run_async()
+        app = asyncio.create_task(self.app.run_async())
+        await app
+        # session = PromptSession()
+        # x = await session.prompt_async()
+        # self.print_event(x)
 
     # TODO this isn't threadsafe
     def print_event(self, msg: str):
