@@ -56,28 +56,30 @@ class ConnectionStatusService(Service):
         # create custom name and handler for subscriber
         self.status_sub = self.subs[0]
         self.status_sub.on_message = self.on_message
-        self.status_sub.loop_start()
 
         # initialize error rate and connection status list
         self.agent_data = {}
         # status data to publish
-        # TODO this contains duplicated stuff from agent_data dict
         self.pub_status_data = {}
+
+        self.status_sub.loop_forever()
 
     def on_message(self, client, userdata, message):
         """"""
         msg: Dict = json.loads(message.payload)
-
         for agent_id, status in msg.items():
-            heartbeat_data = status["heartbeat"]
+            heartbeat_data = 0
+            for data in status:
+                if data["type"] == "heartbeat":
+                    heartbeat_data = data["data"]
+                    break
+
             cur_time = time.time()
-            if not agent_id in self.error_rates:
+            if not agent_id in self.agent_data:
                 # Create a new entry in the agent_data dict with error rate
                 # initialized to 0, connection status "good" and current
                 # heartbeat information
                 self.agent_data[agent_id] = {
-                    "error_rate": 0,
-                    "connection_status": self.STATUSES[1],
                     "last_heartbeat_num": heartbeat_data,
                     "last_heartbeat_time": cur_time,
                     "errors": [(cur_time, 0)],
@@ -91,19 +93,21 @@ class ConnectionStatusService(Service):
                 pub_agent_dict = self.pub_status_data[agent_id]
 
                 last_heartbeat_num = agent_dict["last_heartbeat_num"]
-                last_heartbeat_time = agent_dict["last_heartbeat_time"]
                 cur_errors = heartbeat_data - last_heartbeat_num - 1
-                agent_dict["errors"].append(cur_time, cur_errors)
+                agent_dict["errors"].append((cur_time, cur_errors))
 
                 errors_list: List[Tuple[int, int]] = agent_dict["errors"]
                 errors_total = 0
                 # Remove old errors and calculate moving average error rate
+                # number of deleted items
+                di = 0
                 for i in range(len(errors_list)):
-                    error_time, error_val = errors_list[i]
+                    error_time, error_val = errors_list[i - di]
                     if error_time < cur_time - self.ERROR_RATE_WINDOW:
-                        errors_list.pop(i)
+                        errors_list.pop(i - di)
+                        di += 1
                     else:
-                        errors_total += errors_list[i]
+                        errors_total += errors_list[i - di][1]
 
                 # the error rate is equal to the number of errors that occured
                 # divided by the number of entries in errors list plus the total
@@ -112,7 +116,8 @@ class ConnectionStatusService(Service):
                 # errors_total = num missed heartbeats
                 # error_rate = (num missed) / (num received + num_missed)
                 error_rate = errors_total / (len(errors_list) + errors_total)
-                agent_dict["error_rate"] = error_rate
+                agent_dict["last_heartbeat_num"] = heartbeat_data
+                agent_dict["last_heartbeat_time"] = cur_time
                 # TODO update connection status
                 # TODO update connection status
                 # TODO update connection status
@@ -121,13 +126,15 @@ class ConnectionStatusService(Service):
                 pub_agent_dict["error_rate"] = error_rate
 
         # construct message to publish
+        self.pub.publish(self.pub_topic, json.dumps(self.pub_status_data))
+        print(self.pub_status_data)
 
 
 async def main():
     sub = mqtt.Client("connection_status_sub")
     pub = mqtt.Client("connection_status_pub")
     service = ConnectionStatusService(
-        [sub], ["cedalo/agent_status"], pub, "cedalo/connection_status"
+        [sub], ["cedalo/status"], pub, "cedalo/connection_status"
     )
     service.run()
 

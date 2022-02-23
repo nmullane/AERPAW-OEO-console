@@ -23,6 +23,7 @@ class Service(ABC):
 
         self.subs = subs
         self.pub = pub
+        self.pub_topic = pub_topic
         try:
             # try to subscribe to every topic in sub_topics
             for (sub, topic) in zip(subs, sub_topics):
