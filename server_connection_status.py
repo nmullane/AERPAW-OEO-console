@@ -27,8 +27,8 @@ class ConnectionStatusService(Service):
     STATUSES = ["excellent", "good", "poor", "disconnected"]
     # error rate cutoffs for each status type
     STATUS_ERROR_CUTOFFS = [
-        0,
         0.05,  # good > 5% error
+        # 0.001,  # good > 5% error
         0.5,  # poor > 50% error
         1,  # disconnected = 100% error
     ]
@@ -122,6 +122,10 @@ class ConnectionStatusService(Service):
                 # TODO update connection status
                 # TODO update connection status
                 # TODO update connection status
+                for i in range(len(self.STATUS_ERROR_CUTOFFS)):
+                    if error_rate < self.STATUS_ERROR_CUTOFFS[i]:
+                        pub_agent_dict["connection_status"] = self.STATUSES[i]
+                        break
 
                 pub_agent_dict["error_rate"] = error_rate
 
