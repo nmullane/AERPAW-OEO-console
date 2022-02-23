@@ -1,7 +1,6 @@
 from asyncio import events
 import asyncio
 
-from sqlalchemy import true
 
 import console_event_logger
 
@@ -26,13 +25,14 @@ from rich.console import Console
 from rich.table import Table
 
 # the autocompleter words
-data_completer = WordCompleter(["add", "del", "status", "velocity", "foo", "bar"])
+commands = ["add", "del"]
+data_completer = WordCompleter(["status", "velocity", "heartbeat"])
 
 
 def print_table_to_str(table) -> str:
     """Use rich to render the provided table using a dummy console.
     This is very hacky but seems to work so long as there is no color used."""
-    console = Console(no_color=true)
+    console = Console(no_color=True)
     console.begin_capture()
     console.print(table)
     return console.end_capture()
@@ -48,7 +48,8 @@ def create_events_table(data_to_display):
 
 class CliApp:
     # data type ids from agent statuses to display
-    data_to_display = ["status", "velocity", "status"]
+    data_to_display = []
+    # data_to_display = ["status", "velocity", "heartbeat"]
     # data_to_display = ["velocity"]
     # data_to_display = ["status"]
 
@@ -76,13 +77,26 @@ class CliApp:
         @self.buffer_kb.add("c-m")
         def _handle_input(event):
             buf: BufferControl = self.input_field.content
-            
-            self.data_to_display = [buf.buffer.text]
-            self.logger.data_to_display = self.data_to_display
 
+            input_text = buf.buffer.text
+            cmds = input_text.split()
+
+            if len(cmds) < 2:
+                self.print_event("INPUT COMMAND MUST INCLUDE AN ARGUMENT")
+                return
+
+            if cmds[0] == "add":
+                self.data_to_display += [cmds[1]]
+            elif cmds[0] == "del":
+                try:
+                    self.data_to_display.remove(cmds[1])
+                except:
+                    # TODO log the error
+                    pass
+
+            self.logger.data_to_display = self.data_to_display
             # reset buffer contents
             buf.buffer.reset()
-
 
         self.events_table = create_events_table(self.data_to_display)
 
@@ -93,11 +107,14 @@ class CliApp:
         self.output_field.text = print_table_to_str(self.events_table)
 
         self.events_field = TextArea(
-            read_only=True, height=5, scrollbar=True, focusable=False
+            read_only=True, scrollbar=True, focusable=False, height=10
         )
 
         self.input_field = Window(
-            BufferControl(buffer=self.buffer, key_bindings=self.buffer_kb), height=1
+            BufferControl(buffer=self.buffer, key_bindings=self.buffer_kb),
+            height=1,
+            dont_extend_height=True,
+            ignore_content_height=True,
         )
         # self.input_field = TextArea(
         #     height=1,
@@ -129,7 +146,7 @@ class CliApp:
                 Float(
                     xcursor=True,
                     ycursor=True,
-                    content=CompletionsMenu(max_height=5, scroll_offset=-1),
+                    content=CompletionsMenu(max_height=5, scroll_offset=1),
                 )
             ],
         )
