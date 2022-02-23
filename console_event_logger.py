@@ -10,16 +10,46 @@ import asyncio
 import json
 
 
+class Handlers:
+    def __init__(self):
+        self.handlers = {"heartbeat": self.heartbeat_handler}
+        self.heartbeat_seq: Dict[str, int] = {}
+        self.heartbeat_num_missed_lossy = 3
+        self.heartbeat_num_missed_bad = 20
+
+    def get_handlers(self):
+        """Return the dict of event_id keys mapped to defined handlers"""
+        return self.handlers
+
+    def heartbeat_handler(self, agent_id: str, heartbeat: int):
+        """Check for missed sequence numbers"""
+        # add an entry to heartbeat_seq for this agent if one does not exist
+        if not agent_id in self.heartbeat_seq:
+            self.heartbeat_seq[agent_id] = heartbeat
+        else:
+            num_missed = heartbeat - self.heartbeat_seq[agent_id]
+            if num_missed > self.heartbeat_num_missed_bad:
+                return f"Bad Connection to {agent_id}"
+            elif num_missed > self.heartbeat_num_missed_lossy:
+                return f"Lossy Connection to {agent_id}"
+
+
 class EventLogger(Thread):
 
     # data to parse and store for every agent
-    data_to_display = ["status", "velocity"]
+    data_to_display = []
     # dict of data values for every display data type for each agent
     # data is displayed in a live table
     display_data_vals = {}
 
     # data to look for changes as events
-    event_data_types = ["status"]
+    event_data_types = ["status", "heartbeat"]
+
+    # create instance of event handlers class
+    handlers = Handlers()
+    # get dict of event handlers
+    event_handlers = handlers.get_handlers()
+
     # dict of values for all event types for each agent
     # changes in the stored values are printed as events
     event_vals = {}
@@ -69,6 +99,12 @@ class EventLogger(Thread):
         for agent_id, status in msg.items():
             for event_id in self.event_data_types:
                 event_data = self.data_from_status(event_id, status)
+
+                # if a handler exists for this event, call the handler with the
+                # agent id and the new data point
+                if event_id in self.event_handlers:
+                    event_data = self.event_handlers[event_id](agent_id, event_data)
+
                 # add an entry to event vals for this agent if one does not exist
                 if not agent_id in self.event_vals:
                     agent_event_vals = {event_id: event_data}
