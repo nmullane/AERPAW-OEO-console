@@ -17,6 +17,7 @@ pub.loop_start()
 start = time.time()
 armed_delay = random.randrange(1, 20)
 
+heartbeat = 0
 while True:
     if time.time() > start + armed_delay:
         status = "ARMED"
@@ -30,8 +31,13 @@ while True:
     for i in range(3):
         velocity[i] += dv[i]
 
-    data_list = [Data("status", status), Data("velocity", velocity)]
+    data_list = [
+        Data("status", status),
+        Data("velocity", velocity),
+        Data("heartbeat", heartbeat),
+    ]
     data = AgentData(id, data_list).to_json()
 
     pub.publish("cedalo/agent_status", data)
+    heartbeat += 1
     time.sleep(0.1)
