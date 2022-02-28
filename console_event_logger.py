@@ -66,7 +66,7 @@ class EventLogger(Thread):
 
         try:
             self.sub.connect("localhost", 1883)
-            self.sub.subscribe("cedalo/status")
+            self.sub.subscribe("status")
         except ConnectionRefusedError as e:
             print(e)
             raise Exception("MQTT not running!")

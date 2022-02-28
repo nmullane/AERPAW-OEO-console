@@ -26,11 +26,11 @@ pub.loop_start()
 
 sub = mqtt.Client("server_status_sub")
 sub.connect(broker, 1883)
-sub.subscribe("cedalo/agent_status")
+sub.subscribe("agent_status")
 sub.on_message = on_message
 sub.loop_start()
 
 while True:
     print(agent_statuses)
-    pub.publish("cedalo/status", json.dumps(agent_statuses))
+    pub.publish("status", json.dumps(agent_statuses))
     time.sleep(0.1)

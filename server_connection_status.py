@@ -118,10 +118,8 @@ class ConnectionStatusService(Service):
                 error_rate = errors_total / (len(errors_list) + errors_total)
                 agent_dict["last_heartbeat_num"] = heartbeat_data
                 agent_dict["last_heartbeat_time"] = cur_time
-                # TODO update connection status
-                # TODO update connection status
-                # TODO update connection status
-                # TODO update connection status
+
+                # update connection status
                 for i in range(len(self.STATUS_ERROR_CUTOFFS)):
                     if error_rate < self.STATUS_ERROR_CUTOFFS[i]:
                         pub_agent_dict["connection_status"] = self.STATUSES[i]

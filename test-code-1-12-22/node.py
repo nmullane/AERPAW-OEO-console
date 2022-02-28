@@ -19,7 +19,8 @@ pub.connect(broker, 1883)
 pub.loop_start()
 
 while True:
-    pub.publish("cedalo/HEARTBEATS",
-                json.dumps({"timestamp": time.time(), "node_id": node_id}))
+    pub.publish(
+        "HEARTBEATS", json.dumps({"timestamp": time.time(), "node_id": node_id})
+    )
     print(f"{node_id}: Publishing heartbeat")
     time.sleep(1)
