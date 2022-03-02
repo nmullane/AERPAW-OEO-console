@@ -66,7 +66,7 @@ class EventLogger(Thread):
 
         try:
             self.sub.connect("localhost", 1883)
-            self.sub.subscribe("OEO/status")
+            self.sub.subscribe([("OEO/status", 0), ("OEO/connection_status", 0)])
         except ConnectionRefusedError as e:
             print(e)
             raise Exception("MQTT not running!")
@@ -89,7 +89,8 @@ class EventLogger(Thread):
         try:
             return status[data_type]
         except:
-            print("key not found")
+            pass
+            # print("key not found")
         # for dict in status:
         #     if dict["type"] == data_type:
         #         return dict["data"]
@@ -106,8 +107,8 @@ class EventLogger(Thread):
 
                 # if a handler exists for this event, call the handler with the
                 # agent id and the new data point
-                if event_id in self.event_handlers:
-                    event_data = self.event_handlers[event_id](agent_id, event_data)
+                # if event_id in self.event_handlers:
+                #     event_data = self.event_handlers[event_id](agent_id, event_data)
 
                 # add an entry to event vals for this agent if one does not exist
                 if not agent_id in self.event_vals:
@@ -140,11 +141,12 @@ class EventLogger(Thread):
         for agent_id, msg_contents in msg.items():
             for data_id in self.data_to_display:
                 display_data = self.data_from_status(data_id, msg_contents)
-                if not agent_id in self.display_data_vals:
-                    agent_display_vals = {data_id: display_data}
-                    self.display_data_vals[agent_id] = agent_display_vals
-                else:
-                    self.display_data_vals[agent_id][data_id] = display_data
+                if display_data is not None:
+                    if not agent_id in self.display_data_vals:
+                        agent_display_vals = {data_id: display_data}
+                        self.display_data_vals[agent_id] = agent_display_vals
+                    else:
+                        self.display_data_vals[agent_id][data_id] = display_data
 
         # print(self.agent_statuses)
 

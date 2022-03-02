@@ -29,6 +29,8 @@ class Service(ABC):
             for (sub, topic) in zip(subs, sub_topics):
                 sub.connect(host, port)
                 sub.subscribe(topic)
+
+            pub.connect(host, port)
         except ConnectionRefusedError as e:
             print(e)
             raise Exception("MQTT not running!")

@@ -62,6 +62,7 @@ class ConnectionStatusService(Service):
         # status data to publish
         self.pub_status_data = {}
 
+        self.pub.loop_start()
         self.status_sub.loop_forever()
 
     def on_message(self, client, userdata, message):
@@ -69,10 +70,14 @@ class ConnectionStatusService(Service):
         msg: Dict = json.loads(message.payload)
         for agent_id, status in msg.items():
             heartbeat_data = 0
-            for data in status:
-                if data["type"] == "heartbeat":
-                    heartbeat_data = data["data"]
-                    break
+            try:
+                heartbeat_data = status["heartbeat"]
+            except:
+                print("heartbeat not found")
+            # for data in status:
+            #     if data["type"] == "heartbeat":
+            #         heartbeat_data = data["data"]
+            #         break
 
             cur_time = time.time()
             if not agent_id in self.agent_data:

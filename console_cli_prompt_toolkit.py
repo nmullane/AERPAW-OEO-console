@@ -26,7 +26,9 @@ from rich.table import Table
 
 # the autocompleter words
 commands = ["add", "del"]
-data_completer = WordCompleter(["status", "velocity", "heartbeat"])
+data_completer = WordCompleter(
+    ["status", "velocity", "heartbeat", "error_rate", "connection_status"]
+)
 
 
 def print_table_to_str(table) -> str:
