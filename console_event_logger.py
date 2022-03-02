@@ -43,7 +43,7 @@ class EventLogger(Thread):
     display_data_vals = {}
 
     # data to look for changes as events
-    event_data_types = ["status", "heartbeat"]
+    event_data_types = ["status", "connection_status"]
 
     # create instance of event handlers class
     handlers = Handlers()
@@ -104,6 +104,8 @@ class EventLogger(Thread):
         for agent_id, msg_contents in msg.items():
             for event_id in self.event_data_types:
                 event_data = self.data_from_status(event_id, msg_contents)
+                if event_data is None:
+                    continue
 
                 # if a handler exists for this event, call the handler with the
                 # agent id and the new data point
