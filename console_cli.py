@@ -203,8 +203,15 @@ class CliApp:
         #     for type in data_to_display:
         #         pass
         # return
+
+        # Sort the agent ids to display the table in a consistent order
+        # TODO this sorting is done in a hacky way
         new_events_table = create_events_table(self.data_to_display)
-        for agent_id, data_vals in self.logger.display_data_vals.items():
+        agent_ids = list(map(lambda id: int(id), self.logger.display_data_vals.keys()))
+        agent_ids.sort()
+        agent_ids = [str(id) for id in agent_ids]
+        for agent_id in agent_ids:
+            data_vals = self.logger.display_data_vals[agent_id]
             vals = [val.__str__() for val in data_vals.values()]
             display_vals = []
             for data_id in self.data_to_display:
