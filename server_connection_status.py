@@ -136,7 +136,7 @@ async def main():
     sub = mqtt.Client("connection_status_sub")
     pub = mqtt.Client("connection_status_pub")
     service = ConnectionStatusService(
-        [sub], ["cedalo/status"], pub, "cedalo/connection_status"
+        [sub], ["OEO/status"], pub, "OEO/connection_status"
     )
     service.run()
 

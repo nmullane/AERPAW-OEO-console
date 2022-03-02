@@ -12,10 +12,13 @@ agent_statuses = {}
 def on_message(client, userdata, message):
     msg = json.loads(message.payload)
 
-    # Assume msg is a dictionary and pass in all
-    # key-value pairs to the AgentData constructor
-    # this will need to be error checked in the future
-    agent_statuses[msg["id"]] = msg["data"]
+    # if there is no agent status dict for this id create an empty one
+    if msg["id"] not in agent_statuses:
+        agent_statuses[msg["id"]] = {}
+    # update every piece of data in the agent status dict present in this message
+    for data in msg["data"]:
+        agent_status = agent_statuses[msg["id"]]
+        agent_status[data["type"]] = data["data"]
 
 
 broker = "localhost"
@@ -26,11 +29,11 @@ pub.loop_start()
 
 sub = mqtt.Client("server_status_sub")
 sub.connect(broker, 1883)
-sub.subscribe("agent_status")
+sub.subscribe("OEO/agent_status")
 sub.on_message = on_message
 sub.loop_start()
 
 while True:
     print(agent_statuses)
-    pub.publish("status", json.dumps(agent_statuses))
+    pub.publish("OEO/status", json.dumps(agent_statuses))
     time.sleep(0.1)

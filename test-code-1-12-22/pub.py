@@ -22,14 +22,14 @@ pub.loop_start()
 
 sub = mqtt.Client("count_sub")
 sub.connect(broker, 1883)
-sub.subscribe("COUNT_PAUSE")
+sub.subscribe("OEO/COUNT_PAUSE")
 sub.on_message = on_message
 sub.loop_start()
 
 i = 0
 while True:
     if publish:
-        pub.publish("COUNT", json.dumps({"count": i, "timestamp": time.time()}))
+        pub.publish("OEO/COUNT", json.dumps({"count": i, "timestamp": time.time()}))
         print("Publishing", i)
         i += 1
     time.sleep(1)

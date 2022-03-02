@@ -37,11 +37,11 @@ pub.loop_start()
 
 sub = mqtt.Client("heartbeat_monitor_sub")
 sub.connect(broker, 1883)
-sub.subscribe("HEARTBEATS")
+sub.subscribe("OEO/HEARTBEATS")
 sub.on_message = on_message
 sub.loop_start()
 
 i = 0
 while True:
-    pub.publish("HEARTBEAT_MONITOR", json.dumps(heartbeat_monitor))
+    pub.publish("OEO/HEARTBEAT_MONITOR", json.dumps(heartbeat_monitor))
     time.sleep(1)

@@ -20,7 +20,7 @@ pub.loop_start()
 
 while True:
     pub.publish(
-        "HEARTBEATS", json.dumps({"timestamp": time.time(), "node_id": node_id})
+        "OEO/HEARTBEATS", json.dumps({"timestamp": time.time(), "node_id": node_id})
     )
     print(f"{node_id}: Publishing heartbeat")
     time.sleep(1)

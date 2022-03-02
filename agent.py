@@ -38,6 +38,6 @@ while True:
     ]
     data = AgentData(id, data_list).to_json()
 
-    pub.publish("agent_status", data)
+    pub.publish("OEO/agent_status", data)
     heartbeat += 1
     time.sleep(0.1)

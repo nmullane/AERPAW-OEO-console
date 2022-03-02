@@ -39,6 +39,6 @@ if __name__ == "__main__":
     data = [
         Data("status", "armed"),
         Data("velocity", [0.0, 1.0, 0.6]),
-        Data("name", "Niall's Favorite Drone"),
+        Data("heartbeat", 54),
     ]
     print(json.dumps(AgentData("1", data).__dict__))

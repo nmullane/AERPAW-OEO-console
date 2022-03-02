@@ -14,7 +14,7 @@ broker = "127.0.0.1"
 client = mqtt.Client("count_sub_test")
 client.connect(broker, 1883)
 
-client.subscribe("COUNT_PAUSE")
+client.subscribe("OEO/COUNT_PAUSE")
 # client.subscribe("powerplant/plants/windmill")
 client.on_message = on_message
 
