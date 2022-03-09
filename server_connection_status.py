@@ -35,7 +35,7 @@ class ConnectionStatusService(Service):
     # timeout in seconds for how long without packets to determine we are disconnected
     DISCONNECT_TIMEOUT = 3
     # Window to compute the current error rate for
-    ERROR_RATE_WINDOW = 10
+    ERROR_RATE_WINDOW = 2
 
     def __init__(
         self,
@@ -93,7 +93,8 @@ class ConnectionStatusService(Service):
                     "error_rate": 0,
                     "connection_status": self.STATUSES[1],
                 }
-            else:
+            # update error rate if we have a new heartbeat
+            elif heartbeat_data != self.agent_data[agent_id]["last_heartbeat_num"]:
                 agent_dict = self.agent_data[agent_id]
                 pub_agent_dict = self.pub_status_data[agent_id]
 
@@ -130,7 +131,13 @@ class ConnectionStatusService(Service):
                         pub_agent_dict["connection_status"] = self.STATUSES[i]
                         break
 
-                pub_agent_dict["error_rate"] = error_rate
+                pub_agent_dict["error_rate"] = str(int(100 - 100 * error_rate)) + "%"
+
+        # Check time of last heartbeat received to find disconnected agents
+        disconnect_cuttoff = time.time() - self.DISCONNECT_TIMEOUT
+        for agent_id, agent_data in self.agent_data.items():
+            if agent_data["last_heartbeat_time"] < disconnect_cuttoff:
+                self.pub_status_data[agent_id]["connection_status"] = self.STATUSES[-1]
 
         # construct message to publish
         self.pub.publish(self.pub_topic, json.dumps(self.pub_status_data))

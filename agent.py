@@ -18,6 +18,9 @@ start = time.time()
 armed_delay = random.randrange(1, 20)
 
 heartbeat = 0
+
+error_rate = random.random()
+
 while True:
     if time.time() > start + armed_delay:
         status = "ARMED"
@@ -38,6 +41,8 @@ while True:
     ]
     data = AgentData(id, data_list).to_json()
 
-    pub.publish("OEO/agent_status", data)
+    # don't publish error_rate percent of messages
+    if random.random() > error_rate:
+        pub.publish("OEO/agent_status", data)
     heartbeat += 1
     time.sleep(0.1)
