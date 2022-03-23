@@ -1,19 +1,12 @@
 import json
-from typing import List
-
-
-class Data:
-    def __init__(self, type, data):
-        self.type = type
-        self.data = data
 
 
 class AgentData:
     """Class for encoding arbitrary data in a unified JSON format"""
 
-    def __init__(self, id, data: List[Data]):
+    def __init__(self, id, data):
         self.id = id
-        self.data = [d.__dict__ for d in data]
+        self.data = data
 
     def to_json(self):
         return json.dumps(self.__dict__)
@@ -36,9 +29,8 @@ class AgentData:
 
 
 if __name__ == "__main__":
-    data = [
-        Data("status", "armed"),
-        Data("velocity", [0.0, 1.0, 0.6]),
-        Data("heartbeat", 54),
-    ]
-    print(json.dumps(AgentData("1", data).__dict__))
+    data_dict = {
+        "status": "armed",
+        "velocity": {"x": 0.0, "y": 1.0, "z": 0.6}
+    }
+    print(json.dumps(AgentData("1", data_dict).__dict__))
