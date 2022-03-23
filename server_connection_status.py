@@ -24,18 +24,9 @@ class ConnectionStatusService(Service):
     """Service that subscribes to agent statuses and publishes connection
     status"""
 
-    STATUSES = ["excellent", "good", "poor", "disconnected"]
-    # error rate cutoffs for each status type
-    STATUS_ERROR_CUTOFFS = [
-        0.05,  # good > 5% error
-        # 0.001,  # good > 5% error
-        0.5,  # poor > 50% error
-        1,  # disconnected = 100% error
-    ]
+    STATUSES = ["connected", "disconnected"]
     # timeout in seconds for how long without packets to determine we are disconnected
     DISCONNECT_TIMEOUT = 3
-    # Window to compute the current error rate for
-    ERROR_RATE_WINDOW = 2
 
     def __init__(
         self,
@@ -48,12 +39,12 @@ class ConnectionStatusService(Service):
     ):
         if len(subs) != 1 or len(sub_topics) != 1:
             raise Exception(
-                str(type(self)) + " expects one subscriber and subscriber topic"
+                str(type(self)) + " expects one subscriber and publisher topic"
             )
         super().__init__(subs, sub_topics, pub, pub_topic, host, port)
 
     def run(self):
-        # create custom name and handler for subscriber
+        # create custom name and handler for the one subscriber we use
         self.status_sub = self.subs[0]
         self.status_sub.on_message = self.on_message
 
@@ -68,70 +59,42 @@ class ConnectionStatusService(Service):
     def on_message(self, client, userdata, message):
         """"""
         msg: Dict = json.loads(message.payload)
-        for agent_id, status in msg.items():
-            heartbeat_data = 0
-            try:
-                heartbeat_data = status["heartbeat"]
-            except:
-                print("heartbeat not found")
-            # for data in status:
-            #     if data["type"] == "heartbeat":
-            #         heartbeat_data = data["data"]
-            #         break
+        agent_id = msg["id"]
+        msg_data = msg["data"]
+        try:
+            heartbeat_data = msg_data["heartbeat"]
+        except:
+            print("heartbeat not found")
 
-            cur_time = time.time()
-            if not agent_id in self.agent_data:
-                # Create a new entry in the agent_data dict with error rate
-                # initialized to 0, connection status "good" and current
-                # heartbeat information
-                self.agent_data[agent_id] = {
-                    "last_heartbeat_num": heartbeat_data,
-                    "last_heartbeat_time": cur_time,
-                    "errors": [(cur_time, 0)],
-                }
-                self.pub_status_data[agent_id] = {
-                    "error_rate": 0,
-                    "connection_status": self.STATUSES[1],
-                }
-            # update error rate if we have a new heartbeat
-            elif heartbeat_data != self.agent_data[agent_id]["last_heartbeat_num"]:
+        cur_time = time.time()
+        if not agent_id in self.agent_data:
+            # Create a new entry in the agent_data dict with error rate
+            # initialized to 0, connection status "good" and current
+            # heartbeat information
+            self.agent_data[agent_id] = {
+                "last_heartbeat_num": heartbeat_data,
+                "last_heartbeat_time": cur_time,
+            }
+            self.pub_status_data[agent_id] = {
+                "connection_status": self.STATUSES[0],
+            }
+        # update error rate if we have a new heartbeat
+        else:
+            if heartbeat_data == self.agent_data[agent_id]["last_heartbeat_num"]:
+                print("We didn't get a new heartbeat number for some reason.")
+            elif heartbeat_data != self.agent_data[agent_id]["last_heartbeat_num"] + 1:
+                print(
+                    "New heartbeat is not in sequence with the previous one for some reason."
+                )
+            else:
                 agent_dict = self.agent_data[agent_id]
                 pub_agent_dict = self.pub_status_data[agent_id]
 
-                last_heartbeat_num = agent_dict["last_heartbeat_num"]
-                cur_errors = heartbeat_data - last_heartbeat_num - 1
-                agent_dict["errors"].append((cur_time, cur_errors))
-
-                errors_list: List[Tuple[int, int]] = agent_dict["errors"]
-                errors_total = 0
-                # Remove old errors and calculate moving average error rate
-                # number of deleted items
-                di = 0
-                for i in range(len(errors_list)):
-                    error_time, error_val = errors_list[i - di]
-                    if error_time < cur_time - self.ERROR_RATE_WINDOW:
-                        errors_list.pop(i - di)
-                        di += 1
-                    else:
-                        errors_total += errors_list[i - di][1]
-
-                # the error rate is equal to the number of errors that occured
-                # divided by the number of entries in errors list plus the total
-                # errors.
-                # len(error_list) = num received heartbeats
-                # errors_total = num missed heartbeats
-                # error_rate = (num missed) / (num received + num_missed)
-                error_rate = errors_total / (len(errors_list) + errors_total)
                 agent_dict["last_heartbeat_num"] = heartbeat_data
                 agent_dict["last_heartbeat_time"] = cur_time
 
                 # update connection status
-                for i in range(len(self.STATUS_ERROR_CUTOFFS)):
-                    if error_rate < self.STATUS_ERROR_CUTOFFS[i]:
-                        pub_agent_dict["connection_status"] = self.STATUSES[i]
-                        break
-
-                pub_agent_dict["error_rate"] = str(int(100 - 100 * error_rate)) + "%"
+                pub_agent_dict["connection_status"] = self.STATUSES[0]
 
         # Check time of last heartbeat received to find disconnected agents
         disconnect_cuttoff = time.time() - self.DISCONNECT_TIMEOUT
@@ -148,7 +111,7 @@ async def main():
     sub = mqtt.Client("connection_status_sub")
     pub = mqtt.Client("connection_status_pub")
     service = ConnectionStatusService(
-        [sub], ["OEO/status"], pub, "OEO/connection_status"
+        [sub], ["OEO/node_health"], pub, "OEO/connection_status"
     )
     service.run()
 
