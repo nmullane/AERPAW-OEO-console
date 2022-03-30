@@ -1,0 +1,31 @@
+syntax = "proto2";
+
+package oeo;
+
+message VehicleInformation {
+    required uint32 id = 1;
+    required VehicleInformationData data = 2;
+}
+
+message VehicleInformationData {
+    enum Status {
+        DISARMED = 0;
+        ARMED = 1;
+        // TODO
+    }
+
+    required Status status = 1;
+    required float battery_voltage = 2;
+    required float battery_current = 3;
+    required float battery_percent = 4;
+    required float latitude = 5;
+    required float longitude = 6;
+    required float altitude = 7;
+    required Velocity velocity = 8;
+}
+
+message Velocity {
+    required float x = 1;
+    required float y = 2;
+    required float z = 3;
+}

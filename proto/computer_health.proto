@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package oeo;
+
+message ComputerHealth {
+    required uint32 id = 1;
+    required ComputerHealthData data = 2;
+}
+
+message ComputerHealthData {
+    required uint32 heartbeat = 1;
+    required bool vehicle_script_running = 2;
+    required bool evm_script_running = 3;
+    required float cpu_utilization = 4;
+    required float memory_utilization = 5;
+}
