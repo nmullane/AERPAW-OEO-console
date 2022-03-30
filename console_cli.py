@@ -27,7 +27,24 @@ from rich.table import Table
 # the autocompleter words
 commands = ["add", "del"]
 data_completer = WordCompleter(
-    ["status", "velocity", "heartbeat", "error_rate", "connection_status"]
+    [
+        "status",
+        "velocity",
+        "heartbeat",
+        "error_rate",
+        "connection_status",
+        "latitude",
+        "longitude",
+        "battery_voltage",
+        "battery_current",
+        "battery_percent",
+        "radio_status",
+        "altitude",
+        "vehicle_script_running",
+        "E-VM_script_running",
+        "cpu_utilization",
+        "memory_utilization",
+    ]
 )
 
 
@@ -41,6 +58,8 @@ def print_table_to_str(table) -> str:
 
 
 def create_events_table(data_to_display):
+    """Create a Rich Table with a column for every data id specified in the list
+    data_to_display. Returns the created table that can now be filled with data."""
     events_table = Table(title=None, width=100, header_style=None, footer_style=None)
     events_table.add_column("ID")
     for data in data_to_display:
@@ -206,6 +225,7 @@ class CliApp:
 
         # Sort the agent ids to display the table in a consistent order
         # TODO this sorting is done in a hacky way
+        # Create an empty table with the necessary columns
         new_events_table = create_events_table(self.data_to_display)
         agent_ids = list(map(lambda id: int(id), self.logger.display_data_vals.keys()))
         agent_ids.sort()
@@ -218,8 +238,11 @@ class CliApp:
                 try:
                     display_vals.append(str(data_vals[data_id]))
                 except KeyError:
+                    # if there isn't a data val for this agent_id and data_id
+                    # append empty string to the table to maintain proper ordering
+                    display_vals.append("")
                     # TODO log this
-                    self.print_event("KEY ERROR")
+                    # self.print_event("KEY ERROR")
                     pass
             new_events_table.add_row(agent_id, *display_vals)
 
