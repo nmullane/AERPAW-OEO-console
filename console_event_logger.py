@@ -12,26 +12,11 @@ import json
 
 class Handlers:
     def __init__(self):
-        self.handlers = {"heartbeat": self.heartbeat_handler}
-        self.heartbeat_seq: Dict[str, int] = {}
-        self.heartbeat_num_missed_lossy = 3
-        self.heartbeat_num_missed_bad = 20
+        self.handlers = None
 
     def get_handlers(self):
         """Return the dict of event_id keys mapped to defined handlers"""
         return self.handlers
-
-    def heartbeat_handler(self, agent_id: str, heartbeat: int):
-        """Check for missed sequence numbers"""
-        # add an entry to heartbeat_seq for this agent if one does not exist
-        if not agent_id in self.heartbeat_seq:
-            self.heartbeat_seq[agent_id] = heartbeat
-        else:
-            num_missed = heartbeat - self.heartbeat_seq[agent_id]
-            if num_missed > self.heartbeat_num_missed_bad:
-                return f"Bad Connection to {agent_id}"
-            elif num_missed > self.heartbeat_num_missed_lossy:
-                return f"Lossy Connection to {agent_id}"
 
 
 class EventLogger(Thread):
@@ -43,7 +28,7 @@ class EventLogger(Thread):
     display_data_vals = {}
 
     # data to look for changes as events
-    event_data_types = ["status", "connection_status"]
+    event_data_types = ["status", "connection_status", "radio_status"]
 
     # create instance of event handlers class
     handlers = Handlers()
@@ -66,7 +51,14 @@ class EventLogger(Thread):
 
         try:
             self.sub.connect("localhost", 1883)
-            self.sub.subscribe([("OEO/status", 0), ("OEO/connection_status", 0)])
+            self.sub.subscribe(
+                [
+                    ("OEO/node_health", 0),
+                    ("OEO/vehicle_information", 0),
+                    ("OEO/radio_information", 0),
+                    ("OEO/connection_status", 0),
+                ]
+            )
         except ConnectionRefusedError as e:
             print(e)
             raise Exception("MQTT not running!")
@@ -99,56 +91,76 @@ class EventLogger(Thread):
         """Adds to q using put_nowait. Could error"""
         msg: Dict = json.loads(message.payload)
 
+        agent_id = msg["id"]
+        msg_data = msg["data"]
         # Look for events
         # TODO this currently assumes every event is associated with an agent
-        for agent_id, msg_contents in msg.items():
-            for event_id in self.event_data_types:
-                event_data = self.data_from_status(event_id, msg_contents)
-                if event_data is None:
-                    continue
+        for event_id in self.event_data_types:
+            try:
+                event_data = msg_data[event_id]
+            except:
+                # The event data type was not present
+                # this is fine
+                continue
 
-                # if a handler exists for this event, call the handler with the
-                # agent id and the new data point
-                # if event_id in self.event_handlers:
-                #     event_data = self.event_handlers[event_id](agent_id, event_data)
+            # if a handler exists for this event, call the handler with the
+            # agent id and the new data point
+            # if event_id in self.event_handlers:
+            #     event_data = self.event_handlers[event_id](agent_id, event_data)
 
-                # add an entry to event vals for this agent if one does not exist
-                if not agent_id in self.event_vals:
-                    agent_event_vals = {event_id: event_data}
-                    self.event_vals[agent_id] = agent_event_vals
+            # add an entry to event vals for this agent if one does not exist
+            if not agent_id in self.event_vals:
+                agent_event_vals = {event_id: event_data}
+                self.event_vals[agent_id] = agent_event_vals
 
-                    # the initial value of the event is an event
-                    # event = (agent_id, event_str)
-                    event = (agent_id, f"Agent {agent_id} is now {event_data}")
-                    self.q.put_nowait(event)
-                # add an entry to the agent's event vals for this event_id if one does not exist
-                elif not event_id in self.event_vals[agent_id]:
-                    self.event_vals[agent_id][event_id] = event_data
+                # the initial value of the event is an event
+                # event = (agent_id, event_str)
+                event = (
+                    agent_id,
+                    f"{event_id} for Agent {agent_id} is now {event_data}",
+                )
+                # put this event in a queue for the cli to display from
+                self.q.put_nowait(event)
+            # add an entry to the agent's event vals for this event_id if event_vals exists
+            # for the agent but the event_id does not exist yet for it
+            elif not event_id in self.event_vals[agent_id]:
+                self.event_vals[agent_id][event_id] = event_data
 
-                    # the initial value of the event is an event
-                    # event = (agent_id, event_str)
-                    event = (agent_id, f"Agent {agent_id} is now {event_data}")
-                    self.q.put_nowait(event)
-                elif self.event_vals[agent_id][event_id] != event_data:
-                    # event = (agent_id, event_str)
-                    event = (agent_id, f"Agent {agent_id} is now {event_data}")
-                    self.q.put_nowait(event)
-                    # Update stored event value to match
-                    self.event_vals[agent_id][event_id] = event_data
-                else:
-                    # do nothing if the status hasn't changed
-                    pass
+                # the initial value of the event is an event
+                # event = (agent_id, event_str)
+                event = (
+                    agent_id,
+                    f"{event_id} for Agent {agent_id} is now {event_data}",
+                )
+                self.q.put_nowait(event)
+            elif self.event_vals[agent_id][event_id] != event_data:
+                # event = (agent_id, event_str)
+                event = (
+                    agent_id,
+                    f"{event_id} for Agent {agent_id} is now {event_data}",
+                )
+                self.q.put_nowait(event)
+                # Update stored event value to match
+                self.event_vals[agent_id][event_id] = event_data
+            else:
+                # do nothing if the status hasn't changed
+                pass
 
         # update data
-        for agent_id, msg_contents in msg.items():
-            for data_id in self.data_to_display:
-                display_data = self.data_from_status(data_id, msg_contents)
-                if display_data is not None:
-                    if not agent_id in self.display_data_vals:
-                        agent_display_vals = {data_id: display_data}
-                        self.display_data_vals[agent_id] = agent_display_vals
-                    else:
-                        self.display_data_vals[agent_id][data_id] = display_data
+        for data_id in self.data_to_display:
+            try:
+                display_data = msg_data[data_id]
+            except:
+                # This data id is not in the message
+                # this is fine
+                continue
+            # it shouldn't be None if there was something in the message, but just to double check
+            if display_data is not None:
+                if not agent_id in self.display_data_vals:
+                    agent_display_vals = {data_id: display_data}
+                    self.display_data_vals[agent_id] = agent_display_vals
+                else:
+                    self.display_data_vals[agent_id][data_id] = display_data
 
         # print(self.agent_statuses)
 

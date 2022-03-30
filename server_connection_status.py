@@ -103,8 +103,17 @@ class ConnectionStatusService(Service):
                 self.pub_status_data[agent_id]["connection_status"] = self.STATUSES[-1]
 
         # construct message to publish
-        self.pub.publish(self.pub_topic, json.dumps(self.pub_status_data))
-        print(self.pub_status_data)
+        # TODO at the moment this is going to send a separate message for every agent
+        # every time that it receives a message from any agent
+        # this is a lot of extra pointless messages, but I need a way to send
+        # a disconected message when we aren't getting messages from an agent
+        # and this is the best way to do that at the moment
+        for agent_id, status_dict in self.pub_status_data.items():
+            self.pub.publish(
+                self.pub_topic,
+                json.dumps({"id": agent_id, "data": self.pub_status_data[agent_id]}),
+            )
+        # print(self.pub_status_data)
 
 
 async def main():

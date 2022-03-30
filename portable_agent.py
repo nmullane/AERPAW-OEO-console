@@ -4,7 +4,7 @@ import random
 import sys
 from agent_json_builder import AgentData
 
-id = int(sys.argv[1])
+id = sys.argv[1]
 status = "disarmed"
 velocity = [0.0, 0.0, 0.0]
 altitude = 0
@@ -46,10 +46,10 @@ while True:
     #### radio information message ####
     ###################################
 
-    radio_compliant = True
-    if random.random() < 0.05:
-        radio_compliant = False
-    data_dict = {"status": radio_compliant}
+    radio_status = "compliant"
+    if random.random() < 0.01:
+        radio_status = "not compliant"
+    data_dict = {"radio_status": radio_status}
     radio_info_data = AgentData(id, data_dict).to_json()
 
     #####################################

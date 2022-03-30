@@ -4,7 +4,7 @@ import random
 import sys
 from agent_json_builder import AgentData
 
-id = int(sys.argv[1])
+id = sys.argv[1]
 
 broker = "localhost"
 
