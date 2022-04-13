@@ -10,7 +10,8 @@ message ComputerHealth {
 message ComputerHealthData {
     required uint32 heartbeat = 1;
     required bool vehicle_script_running = 2;
-    required bool evm_script_running = 3;
-    required float cpu_utilization = 4;
-    required float memory_utilization = 5;
+    required bool radio_script_running = 3;
+    required bool traffic_script_running = 4;
+    required float cpu_utilization = 5;
+    required float memory_utilization = 6;
 }
