@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15\x63omputer_health.proto\x12\x03oeo\"C\n\x0e\x43omputerHealth\x12\n\n\x02id\x18\x01 \x02(\r\x12%\n\x04\x64\x61ta\x18\x02 \x02(\x0b\x32\x17.oeo.ComputerHealthData\"\x98\x01\n\x12\x43omputerHealthData\x12\x11\n\theartbeat\x18\x01 \x02(\r\x12\x1e\n\x16vehicle_script_running\x18\x02 \x02(\x08\x12\x1a\n\x12\x65vm_script_running\x18\x03 \x02(\x08\x12\x17\n\x0f\x63pu_utilization\x18\x04 \x02(\x02\x12\x1a\n\x12memory_utilization\x18\x05 \x02(\x02')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15\x63omputer_health.proto\x12\x03oeo\"C\n\x0e\x43omputerHealth\x12\n\n\x02id\x18\x01 \x02(\r\x12%\n\x04\x64\x61ta\x18\x02 \x02(\x0b\x32\x17.oeo.ComputerHealthData\"\xba\x01\n\x12\x43omputerHealthData\x12\x11\n\theartbeat\x18\x01 \x02(\r\x12\x1e\n\x16vehicle_script_running\x18\x02 \x02(\x08\x12\x1c\n\x14radio_script_running\x18\x03 \x02(\x08\x12\x1e\n\x16traffic_script_running\x18\x04 \x02(\x08\x12\x17\n\x0f\x63pu_utilization\x18\x05 \x02(\x02\x12\x1a\n\x12memory_utilization\x18\x06 \x02(\x02')
 
 
 
@@ -40,5 +40,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _COMPUTERHEALTH._serialized_start=30
   _COMPUTERHEALTH._serialized_end=97
   _COMPUTERHEALTHDATA._serialized_start=100
-  _COMPUTERHEALTHDATA._serialized_end=252
+  _COMPUTERHEALTHDATA._serialized_end=286
 # @@protoc_insertion_point(module_scope)
