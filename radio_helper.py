@@ -1,8 +1,10 @@
-from sqlalchemy import true
 import proto.radio_information_pb2 as pb
 import random
-import zmq.asyncio as zmq
+import zmq
+import zmq.asyncio
 import time
+import sys
+import asyncio
 
 
 class RadioHelper:
@@ -12,7 +14,7 @@ class RadioHelper:
         self.dt = dt
 
         # setup ZMQ context and socket
-        self.context = zmq.Context()
+        self.context = zmq.asyncio.Context()
         # one-to-one bi-directional PAIR socket
         self.socket = self.context.socket(zmq.PAIR)
         # bind to the given port on any IP address
@@ -34,4 +36,12 @@ class RadioHelper:
         while True:
             self.update_data()
             await self.send_data()
-            await time.sleep(self.dt)
+            await asyncio.sleep(self.dt)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        print("HI")
+    else:
+        helper = RadioHelper()
+        asyncio.run(helper.loop())

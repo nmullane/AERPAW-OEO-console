@@ -1,7 +1,10 @@
 import proto.computer_health_pb2 as pb
 import random
-import zmq.asyncio as zmq
+import zmq
+import zmq.asyncio
 import time
+import sys
+import asyncio
 
 
 class ComputerHelper:
@@ -11,7 +14,7 @@ class ComputerHelper:
         self.dt = dt
 
         # setup ZMQ context and sockets
-        self.context = zmq.Context()
+        self.context = zmq.asyncio.Context()
         # one-to-one bi-directional PAIR socket
         self.socket = self.context.socket(zmq.PAIR)
         # bind to the given port on any IP address
@@ -30,7 +33,8 @@ class ComputerHelper:
         self.health_message_data.memory_utilization = random.random() * 30 + 20
 
         self.health_message_data.vehicle_script_running = False
-        self.health_message_data.evm_script_running = True
+        self.health_message_data.radio_script_running = True
+        self.health_message_data.traffic_script_running = True
 
     async def send_data(self):
         data = self.health_message_data.SerializeToString()
@@ -40,4 +44,12 @@ class ComputerHelper:
         while True:
             self.update_data()
             await self.send_data()
-            await time.sleep(self.dt)
+            await asyncio.sleep(self.dt)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        print("HI")
+    else:
+        helper = ComputerHelper()
+        asyncio.run(helper.loop())
