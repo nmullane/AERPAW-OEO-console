@@ -1,5 +1,10 @@
 """This file is responsible for subscribing to mqtt messages
 and generating events to log based on the messages received"""
+import proto.computer_health_pb2 as pb_computer
+import proto.radio_information_pb2 as pb_radio
+import proto.vehicle_information_pb2 as pb_vehicle
+
+from protobuf_to_dict import protobuf_to_dict
 
 from asyncio import events
 from typing import Dict, List
@@ -39,26 +44,32 @@ class EventLogger(Thread):
     # changes in the stored values are printed as events
     event_vals = {}
 
-    def __init__(
-        self, sub: mqtt.Client, q: asyncio.Queue, table, live, data_to_display: List
-    ):
+    def __init__(self, q: asyncio.Queue, table, live, data_to_display: List):
         Thread.__init__(self)
         self.q = q
-        self.sub = sub
+        self.computer_helper_sub = mqtt.Client("computer_helper_sub")
+        self.radio_helper_sub = mqtt.Client("radio_helper_sub")
+        self.vehicle_helper_sub = mqtt.Client("vehicle_helper_sub")
+        self.microservice_sub = mqtt.Client("console_status_sub")
         self.table = table
         self.live = live
         self.data_to_display = data_to_display
 
         try:
-            self.sub.connect("localhost", 1883)
-            self.sub.subscribe(
-                [
-                    ("OEO/node_health", 0),
-                    ("OEO/vehicle_information", 0),
-                    ("OEO/radio_information", 0),
-                    ("OEO/connection_status", 0),
-                ]
-            )
+            self.computer_helper_sub.connect("localhost", 1883)
+            self.radio_helper_sub.connect("localhost", 1883)
+            self.vehicle_helper_sub.connect("localhost", 1883)
+            self.microservice_sub.connect("localhost", 1883)
+
+            self.computer_helper_sub.subscribe([("OEO/node_health", 0)])
+            self.radio_helper_sub.subscribe([("OEO/radio_information", 0)])
+            self.vehicle_helper_sub.subscribe([("OEO/vehicle_information", 0)])
+            self.microservice_sub.subscribe([("OEO/connection_status", 0)])
+
+            self.computer_helper_sub.on_message = self.on_message_computer_helper
+            self.radio_helper_sub.on_message = self.on_message_radio_helper
+            self.vehicle_helper_sub.on_message = self.on_message_vehicle_helper
+            self.microservice_sub.on_message = self.on_message_json
         except ConnectionRefusedError as e:
             print(e)
             raise Exception("MQTT not running!")
@@ -72,8 +83,10 @@ class EventLogger(Thread):
         return event
 
     async def run(self):
-        self.sub.on_message = self.on_message
-        self.sub.loop_start()
+        self.computer_helper_sub.loop_start()
+        self.radio_helper_sub.loop_start()
+        self.vehicle_helper_sub.loop_start()
+        self.microservice_sub.loop_start()
 
     def data_from_status(self, data_type: str, status: List):
         """Look through every data within the status message of an agent for
@@ -87,17 +100,12 @@ class EventLogger(Thread):
         #     if dict["type"] == data_type:
         #         return dict["data"]
 
-    def on_message(self, client, userdata, message):
-        """Adds to q using put_nowait. Could error"""
-        msg: Dict = json.loads(message.payload)
-
-        agent_id = msg["id"]
-        msg_data = msg["data"]
-        # Look for events
-        # TODO this currently assumes every event is associated with an agent
+    def update_display_data_from_dict(self, agent_id, data):
+        """Updates the table of display data based on the provided data dictionary
+        Uses q.put_no_wait could error"""
         for event_id in self.event_data_types:
             try:
-                event_data = msg_data[event_id]
+                event_data = data[event_id]
             except:
                 # The event data type was not present
                 # this is fine
@@ -149,7 +157,7 @@ class EventLogger(Thread):
         # update data
         for data_id in self.data_to_display:
             try:
-                display_data = msg_data[data_id]
+                display_data = data[data_id]
             except:
                 # This data id is not in the message
                 # this is fine
@@ -162,12 +170,46 @@ class EventLogger(Thread):
                 else:
                     self.display_data_vals[agent_id][data_id] = display_data
 
-        # print(self.agent_statuses)
+        # print(self.display_data_vals)
+
+    def parse_proto_msg(self, msg):
+        """Extract the agent id and deserialize the required data field into a dict"""
+        agent_id = str(msg.id)
+        msg_data = msg.data
+        msg_data_dict = protobuf_to_dict(msg_data, use_enum_labels=True)
+        self.update_display_data_from_dict(agent_id, msg_data_dict)
+
+    def on_message_computer_helper(self, client, userdata, message):
+        """Deserialize computer health protobuf message"""
+        msg = pb_computer.ComputerHealth()
+        msg.ParseFromString(message.payload)
+        self.parse_proto_msg(msg)
+
+    def on_message_radio_helper(self, client, userdata, message):
+        """Deserialize radio information protobuf message"""
+        msg = pb_radio.RadioInformation()
+        msg.ParseFromString(message.payload)
+        self.parse_proto_msg(msg)
+
+    def on_message_vehicle_helper(self, client, userdata, message):
+        """Deserialize vehicle information protobuf message"""
+        msg = pb_vehicle.VehicleInformation()
+        msg.ParseFromString(message.payload)
+        self.parse_proto_msg(msg)
+
+    # Load data from a microservice sending a JSON packet
+    def on_message_json(self, client, userdata, message):
+        """Adds to q using put_nowait. Could error"""
+        msg: Dict = json.loads(message.payload)
+
+        agent_id = msg["id"]
+        msg_data_dict = msg["data"]
+        self.update_display_data_from_dict(agent_id, msg_data_dict)
+        # TODO this currently assumes every event is associated with an agent
 
 
 async def main(status_q: asyncio.Queue, data_to_display):
-    sub = mqtt.Client("console_status_sub")
-    logger = EventLogger(sub, status_q, None, None, data_to_display)
+    logger = EventLogger(status_q, None, None, data_to_display)
     return logger
 
 
