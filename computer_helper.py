@@ -1,3 +1,4 @@
+from distutils.log import error
 import proto.computer_health_pb2 as pb
 import random
 import zmq
@@ -10,7 +11,7 @@ import asyncio
 class ComputerHelper:
     """Dummy class to create data as if it was a computer helper"""
 
-    def __init__(self, port=5557, dt=0.1):
+    def __init__(self, port=5557, dt=0.1, error_rate=0.9):
         self.dt = dt
 
         # setup ZMQ context and sockets
@@ -22,6 +23,7 @@ class ComputerHelper:
 
         self.heartbeat = 0
         self.health_message_data = pb.ComputerHealthData()
+        self.error_rate = error_rate
 
     def update_data(self):
         self.heartbeat += 1
@@ -42,8 +44,10 @@ class ComputerHelper:
 
     async def loop(self):
         while True:
-            self.update_data()
-            await self.send_data()
+            # based on the error rate don't update data or send message
+            if random.random() > self.error_rate:
+                self.update_data()
+                await self.send_data()
             await asyncio.sleep(self.dt)
 
 

@@ -4,6 +4,7 @@
 # for each agent publishes:
 #   qualitative status (excellent, good, poor, disconnected)
 #   numeric error rate (lost heartbeats)
+import proto.computer_health_pb2 as pb
 
 from asyncio import events
 from cProfile import run
@@ -58,13 +59,10 @@ class ConnectionStatusService(Service):
 
     def on_message(self, client, userdata, message):
         """"""
-        msg: Dict = json.loads(message.payload)
-        agent_id = msg["id"]
-        msg_data = msg["data"]
-        try:
-            heartbeat_data = msg_data["heartbeat"]
-        except:
-            print("heartbeat not found")
+        msg = pb.ComputerHealth()
+        msg.ParseFromString(message.payload)
+        agent_id = str(msg.id)
+        heartbeat = msg.data.heartbeat
 
         cur_time = time.time()
         if not agent_id in self.agent_data:
@@ -72,7 +70,7 @@ class ConnectionStatusService(Service):
             # initialized to 0, connection status "good" and current
             # heartbeat information
             self.agent_data[agent_id] = {
-                "last_heartbeat_num": heartbeat_data,
+                "last_heartbeat_num": heartbeat,
                 "last_heartbeat_time": cur_time,
             }
             self.pub_status_data[agent_id] = {
@@ -80,25 +78,25 @@ class ConnectionStatusService(Service):
             }
         # update error rate if we have a new heartbeat
         else:
-            if heartbeat_data == self.agent_data[agent_id]["last_heartbeat_num"]:
+            if heartbeat == self.agent_data[agent_id]["last_heartbeat_num"]:
                 print("We didn't get a new heartbeat number for some reason.")
-            elif heartbeat_data != self.agent_data[agent_id]["last_heartbeat_num"] + 1:
+            elif heartbeat != self.agent_data[agent_id]["last_heartbeat_num"] + 1:
                 print(
                     "New heartbeat is not in sequence with the previous one for some reason."
                 )
-            else:
-                agent_dict = self.agent_data[agent_id]
-                pub_agent_dict = self.pub_status_data[agent_id]
+            agent_dict = self.agent_data[agent_id]
+            pub_agent_dict = self.pub_status_data[agent_id]
 
-                agent_dict["last_heartbeat_num"] = heartbeat_data
-                agent_dict["last_heartbeat_time"] = cur_time
+            agent_dict["last_heartbeat_num"] = heartbeat
+            agent_dict["last_heartbeat_time"] = cur_time
 
-                # update connection status
-                pub_agent_dict["connection_status"] = self.STATUSES[0]
+            # update connection status
+            pub_agent_dict["connection_status"] = self.STATUSES[0]
 
         # Check time of last heartbeat received to find disconnected agents
         disconnect_cuttoff = time.time() - self.DISCONNECT_TIMEOUT
         for agent_id, agent_data in self.agent_data.items():
+            print(agent_data["last_heartbeat_time"] - disconnect_cuttoff)
             if agent_data["last_heartbeat_time"] < disconnect_cuttoff:
                 self.pub_status_data[agent_id]["connection_status"] = self.STATUSES[-1]
 
