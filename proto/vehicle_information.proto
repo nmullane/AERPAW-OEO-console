@@ -8,11 +8,6 @@ message VehicleInformation {
 }
 
 message VehicleInformationData {
-    enum Status {
-        DISARMED = 0;
-        ARMED = 1;
-        // TODO
-    }
 
     required Status status = 1;
     required float battery_voltage = 2;
@@ -22,6 +17,11 @@ message VehicleInformationData {
     required float longitude = 6;
     required float altitude = 7;
     required Velocity velocity = 8;
+}
+
+enum Status {
+    DISARMED = 0;
+    ARMED = 1;
 }
 
 message Velocity {

@@ -5,7 +5,8 @@ import paho.mqtt.client as mqtt
 import time
 import random
 import sys
-import zmq.asyncio as zmq
+import zmq
+import zmq.asyncio
 import asyncio
 
 
@@ -31,7 +32,7 @@ class Agent:
         self.radio_helper = radio_helper
 
         # setup zmq context
-        self.context = zmq.Context()
+        self.context = zmq.asyncio.Context()
 
         if self.vehicle_helper:
             # connect to vehicle helper
@@ -75,35 +76,44 @@ class Agent:
     async def vehicle_loop(self):
         while True:
             data = await self.vehicle_socket.recv()
-            data = pb_vehicle.ParseFromString(data)
+            parse_data = pb_vehicle.VehicleInformationData()
+            parse_data.ParseFromString(data)
 
             # Construct a message containing the helper data
             message = pb_vehicle.VehicleInformation()
             message.id = self.id
-            message.data = data
-            self.vehicle_information_pub.publish("OEO/vehicle_information", message)
+            message.data.CopyFrom(parse_data)
+            self.vehicle_information_pub.publish(
+                "OEO/vehicle_information", message.SerializeToString()
+            )
 
     async def radio_loop(self):
         while True:
             data = await self.radio_socket.recv()
-            data = pb_radio.ParseFromString(data)
+            parse_data = pb_radio.RadioInformationData()
+            parse_data.ParseFromString(data)
 
             # Construct a message containing the helper data
             message = pb_radio.RadioInformation()
             message.id = self.id
-            message.data = data
-            self.radio_information_pub.publish("OEO/radio_information", message)
+            message.data.CopyFrom(parse_data)
+            self.radio_information_pub.publish(
+                "OEO/radio_information", message.SerializeToString()
+            )
 
     async def computer_loop(self):
         while True:
             data = await self.computer_socket.recv()
-            data = pb_computer.ParseFromString(data)
+            parse_data = pb_computer.ComputerHealthData()
+            parse_data.ParseFromString(data)
 
             # Construct a message containing the helper data
             message = pb_computer.ComputerHealth()
             message.id = self.id
-            message.data = data
-            self.computer_health_pub.publish("OEO/node_health", message)
+            message.data.CopyFrom(parse_data)
+            self.computer_health_pub.publish(
+                "OEO/node_health", message.SerializeToString()
+            )
 
     async def loop(self):
         if self.vehicle_helper:
@@ -112,6 +122,8 @@ class Agent:
             radio_loop = asyncio.create_task(self.radio_loop())
         if self.computer_helper:
             computer_loop = asyncio.create_task(self.computer_loop())
+
+        await vehicle_loop
 
     def run(self):
         """Function to run all of the necessary loops"""
@@ -142,51 +154,3 @@ class CloudAgent(Agent):
 
     def __init__(self, *args):
         super(CloudAgent, self).__init__(*args, radio_helper=True)
-
-
-id = sys.argv[1]
-
-broker = "localhost"
-
-node_health_pub = mqtt.Client(f"agent_{id}_health_pub")
-node_health_pub.connect(broker, 1883)
-node_health_pub.loop_start()
-
-
-start = time.time()
-armed_delay = random.randrange(1, 20)
-
-heartbeat = 0
-
-# not actually an error rate. used to randomly delay messages
-error_rate = random.random()
-
-dt = 0.1
-while True:
-    #############################
-    #### node health message ####
-    #############################
-
-    # random cpu between 0% and 40%
-    cpu_utilization = random.random() * 40
-    # random memory between 20% and 50%
-    memory_utilization = random.random() * 30 + 20
-    data_dict = {
-        "heartbeat": heartbeat,
-        "vehicle_script_running": False,
-        "E-VM_script_running": True,
-        "cpu_utilization": cpu_utilization,
-        "memory_utilization": memory_utilization,
-    }
-
-    node_health_data = AgentData(id, data_dict).to_json()
-
-    # don't publish error_rate percent of messages
-    if random.random() > error_rate:
-        node_health_pub.publish("OEO/node_health", node_health_data)
-        # Since mqtt works over tcp we will never be losing messages, so assume
-        # this error rate behaves to add a random delay. only update the
-        # heartbeat when a message is actually sent
-        # update heartbeat
-        heartbeat += 1
-    time.sleep(dt)
