@@ -85,6 +85,9 @@ class VehicleHelper:
             await self.send_data()
             await asyncio.sleep(self.dt)
 
+    def run(self):
+        asyncio.run(self.loop())
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

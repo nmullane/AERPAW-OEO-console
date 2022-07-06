@@ -9,6 +9,8 @@ import zmq
 import zmq.asyncio
 import asyncio
 
+PORT = 5550
+
 
 class Agent:
     def __init__(
@@ -35,6 +37,7 @@ class Agent:
         self.context = zmq.asyncio.Context()
 
         if self.vehicle_helper:
+            print(vehicle_port)
             # connect to vehicle helper
             self.vehicle_socket = self.context.socket(zmq.PAIR)
             # assumes the vehicle helper is on localhost
@@ -123,7 +126,7 @@ class Agent:
         if self.computer_helper:
             computer_loop = asyncio.create_task(self.computer_loop())
 
-        await vehicle_loop
+        await computer_loop
 
     def run(self):
         """Function to run all of the necessary loops"""
@@ -134,9 +137,16 @@ class PortableAgent(Agent):
     """Wrapper class to construct an agent with the correct subset of helpers
     for a portable agent"""
 
-    def __init__(self, *args):
+    def __init__(self, id, *args):
         super(PortableAgent, self).__init__(
-            *args, vehicle_helper=True, computer_helper=True, radio_helper=True
+            id,
+            *args,
+            vehicle_helper=True,
+            vehicle_port=PORT + id * 3,
+            computer_helper=True,
+            computer_port=PORT + id * 3 + 1,
+            radio_helper=True,
+            radio_port=PORT + id * 3 + 2,
         )
 
 
@@ -144,13 +154,22 @@ class FixedAgent(Agent):
     """Wrapper class to construct an agent with the correct subset of helpers
     for a fixed agent"""
 
-    def __init__(self, *args):
-        super(FixedAgent, self).__init__(*args, computer_helper=True, radio_helper=True)
+    def __init__(self, id, *args):
+        super(FixedAgent, self).__init__(
+            id,
+            *args,
+            computer_helper=True,
+            computer_port=PORT + id * 3,
+            radio_helper=True,
+            radio_port=PORT + id * 3 + 1,
+        )
 
 
 class CloudAgent(Agent):
     """Wrapper class to construct an agent with the correct subset of helpers
     for a cloud agent"""
 
-    def __init__(self, *args):
-        super(CloudAgent, self).__init__(*args, radio_helper=True)
+    def __init__(self, id, *args):
+        super(CloudAgent, self).__init__(
+            id, *args, computer_helper=True, computer_port=PORT + id * 3
+        )
