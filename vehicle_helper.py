@@ -5,12 +5,13 @@ import zmq.asyncio
 import time
 import sys
 import asyncio
+import dronekit
 
 
 class VehicleHelper:
     """Dummy class to create data as if it was a vehicle helper"""
 
-    def __init__(self, port=5556, dt=0.1):
+    def __init__(self, port=5556, dt=0.1, downlink: str=None):
         self.dt = dt
 
         # setup ZMQ context and sockets
@@ -85,6 +86,60 @@ class VehicleHelper:
             await self.send_data()
             await asyncio.sleep(self.dt)
 
+    def run(self):
+        asyncio.run(self.loop())
+
+
+class VehicleHelperMikuMode:
+    _dk_vehicle: dronekit.Vehicle
+    
+    def __init__(self, port=5556, dt=0.1, downlink: str=None):
+        # TODO load vehicle type config from file of some sort
+        self.dt = dt # dt is delay between samples -- TODO should conv from Hz in theory
+
+        self.context = zmq.asyncio.Context()
+        self.socket = self.context.socket(zmq.PAIR)
+        self.socket.bind(f"tcp://*:{port}")
+
+        self.heartbeat = 0
+        self.vehicle_information = pb.VehicleInformationData() # TODO we trust the zero values here
+
+        self.start = time.time()
+
+        assert downlink is not None
+        self._dk_vehicle = dronekit.connect(downlink, wait_ready=True)
+        self._dk_vehicle.commands.download()
+        self._dk_vehicle.commands.wait_ready()
+    
+    def update_data(self):
+        # read in data from dronekit and populate fields on protobuf
+        self.vehicle_information.status = 1 if self._dk_vehicle.armed else 0
+
+        batt_info = self._dk_vehicle.battery
+        self.vehicle_information.battery_voltage = batt_info.voltage
+        self.vehicle_information.battery_current = batt_info.current
+        self.vehicle_information.battery_percent = batt_info.level
+
+        pos_global = self._dk_vehicle.location.global_relative_frame
+        self.vehicle_information.latitude = pos_global.lat
+        self.vehicle_information.longitude = pos_global.lon
+        self.vehicle_information.altitude = pos_global.alt
+
+        vx, vy, vz = self._dk_vehicle.velocity
+        self.vehicle_information.velocity.x = vx
+        self.vehicle_information.velocity.y = vy
+        self.vehicle_information.velocity.z = vz
+    
+    async def send_data(self):
+        data = self.vehicle_information.SerializeToString()
+        self.socket.send(data)
+    
+    async def loop(self):
+        while True:
+            self.update_data()
+            await self.send_data()
+            await asyncio.sleep(self.dt)
+    
     def run(self):
         asyncio.run(self.loop())
 
