@@ -86,6 +86,7 @@ class Agent:
             message = pb_vehicle.VehicleInformation()
             message.id = self.id
             message.data.CopyFrom(parse_data)
+            # TODO here
             self.vehicle_information_pub.publish(
                 "OEO/vehicle_information", message.SerializeToString()
             )

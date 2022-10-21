@@ -1,6 +1,10 @@
 from asyncio import events
 import asyncio
-
+import json
+import zmq
+import zmq.asyncio
+import paho.mqtt.client as mqtt
+import re
 
 import console_event_logger
 
@@ -25,7 +29,7 @@ from rich.console import Console
 from rich.table import Table
 
 # the autocompleter words
-commands = ["add", "del"]
+commands = ["add", "del", "command"]
 data_completer = WordCompleter(
     [
         "status",
@@ -67,6 +71,30 @@ def create_events_table(data_to_display):
     return events_table
 
 
+def _serialize_command(id, verb, params):
+    _serialize_arm_data = lambda params: {"armed": {"yes": True, "no": False}.get(params[0], None)}
+    _serialize_arm_solo_data = lambda _: {}
+    _serialize_disarm_data = lambda _: {}
+    _serialize_mode_data = lambda params: {"mode": params[0]}
+    _serialize_rtl_data = lambda _: {}
+    _serialize_takeoff_data = lambda params: {"altitude": int(params[0])}
+    
+    data_serializer = {
+        "arm": _serialize_arm_solo_data,
+        "disarm": _serialize_disarm_data,
+        "mode": _serialize_mode_data,
+        "rtl": _serialize_rtl_data,
+        "takeoff": _serialize_takeoff_data,
+    }.get(verb, None)
+
+    if data_serializer is None:
+        return None
+    return {
+        "node_id": id,
+        "verb": verb,
+        "data": data_serializer(params),
+    }
+
 class CliApp:
     # data type ids from agent statuses to display
     data_to_display = []
@@ -85,6 +113,10 @@ class CliApp:
         # keybinds within input buffer
         self.buffer_kb = KeyBindings()
 
+        self.mqtt_client = None
+
+        self.connected_agents = {} # id: {idk}
+
         @self.kb.add("c-d")
         def _exit(event):
             """
@@ -102,6 +134,25 @@ class CliApp:
             input_text = buf.buffer.text
             cmds = input_text.split()
 
+            def _handle_command(agent, cmds):
+                try:
+                    print(cmds)
+                    _, verb = cmds[1:3]
+                    params = cmds[3:]
+                    print("all")
+                    print(params)
+                    print(agent, verb, params)
+                    serialized = _serialize_command(agent, verb, params)
+                    if serialized == None:
+                        self.print_event("INPUT COMMAND INVALID")
+                        return
+                    print(agent, json.dumps(serialized))
+                    self.mqtt_client.publish(
+                        "OEO/vehicle_command", json.dumps(serialized)
+                    )
+                except Exception as e:
+                    print(e)
+
             if len(cmds) < 2:
                 self.print_event("INPUT COMMAND MUST INCLUDE AN ARGUMENT")
                 return
@@ -114,6 +165,20 @@ class CliApp:
                 except:
                     # TODO log the error
                     pass
+            elif cmds[0] == "command":
+                _handle_command(cmds[1], cmds)
+            elif cmds[0] == "all":
+                # forward command to all agents
+                for agent_id in self.logger.display_data_vals.keys():
+                    _handle_command(agent_id, [""] + cmds)
+            else:
+                # default to assuming that it's a command with a preceding vehicle identifier
+                for agent_id in self.logger.display_data_vals.keys():
+                    if agent_id == cmds[0]:
+                        cmds_extend = [""] + cmds
+                        _handle_command(agent_id, cmds_extend)
+                        break
+
 
             self.logger.data_to_display = self.data_to_display
             # reset buffer contents
@@ -183,6 +248,14 @@ class CliApp:
 
     async def run_app(self):
         # start the event logger to publish events
+        
+        self.broker = "localhost"
+        self.port = 1883
+        self.mqtt_client = mqtt.Client(f"oeo_vehicle_cmd_pub")
+        self.mqtt_client.connect(self.broker, self.port)
+        self.mqtt_client.loop_start()
+
+        
         status_q = asyncio.Queue()
         self.logger = await console_event_logger.main(status_q, self.data_to_display)
         await self.logger.run()

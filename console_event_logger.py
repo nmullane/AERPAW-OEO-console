@@ -197,6 +197,10 @@ class EventLogger(Thread):
         msg.ParseFromString(message.payload)
         self.parse_proto_msg(msg)
 
+    def on_message_print_helper(self, client, userdata, message):
+        """Deserialize vehicle information protobuf message"""
+        print(message.payload)
+    
     # Load data from a microservice sending a JSON packet
     def on_message_json(self, client, userdata, message):
         """Adds to q using put_nowait. Could error"""

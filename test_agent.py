@@ -5,6 +5,7 @@ from radio_helper import RadioHelper
 from vehicle_helper import VehicleHelper, VehicleHelperMikuMode
 import threading
 import os
+import time
 from argparse import ArgumentParser
 
 def _launch_agents(n_portable: int=0, n_fixed: int=0, n_cloud: int=0, portable_addrs: List[str]=None):
@@ -13,7 +14,7 @@ def _launch_agents(n_portable: int=0, n_fixed: int=0, n_cloud: int=0, portable_a
         portable = PortableAgent(i)
         # vehicle_helper = VehicleHelper(port=PORT + i * 3)
         if portable_addrs is not None:
-            vehicle_helper = VehicleHelperMikuMode(port=PORT + i * 3, downlink=portable_addrs[i])
+            vehicle_helper = VehicleHelperMikuMode(port=PORT + i * 3, downlink=portable_addrs[i], id=f"{i}")
         else:
             vehicle_helper = VehicleHelper(port=PORT + i * 3)
         computer_helper = ComputerHelper(port=PORT + i * 3 + 1)
@@ -22,6 +23,7 @@ def _launch_agents(n_portable: int=0, n_fixed: int=0, n_cloud: int=0, portable_a
         threading.Thread(target=vehicle_helper.run).start()
         threading.Thread(target=computer_helper.run).start()
         threading.Thread(target=radio_helper.run).start()
+        time.sleep(5)
 
 
     # Create some fixed agents and the necessary helpers
@@ -32,6 +34,7 @@ def _launch_agents(n_portable: int=0, n_fixed: int=0, n_cloud: int=0, portable_a
         threading.Thread(target=fixed.run).start()
         threading.Thread(target=computer_helper.run).start()
         threading.Thread(target=radio_helper.run).start()
+        print("yee")
 
     # Create some cloud agents and the necessary helpers
     for i in range(n_portable+n_fixed, n_portable+n_fixed+n_cloud):
@@ -39,6 +42,7 @@ def _launch_agents(n_portable: int=0, n_fixed: int=0, n_cloud: int=0, portable_a
         computer_helper = ComputerHelper(port=PORT + i * 3)
         threading.Thread(target=cloud.run).start()
         threading.Thread(target=computer_helper.run).start()
+        print("yeyeet")
 
     print("Finished launching agents")
 
@@ -62,7 +66,7 @@ if __name__ == "__main__":
         exit_commands = []
         for vehicle_idx in range(int(args.n_portable)):
             v_prefix = f"oeotest_vehicle_{vehicle_idx}"
-            launch_cmds.append(f"{base_launch_cmd} --sitl-instance {vehicle_idx+1} --screen-base {v_prefix}")
+            launch_cmds.append(f"{base_launch_cmd} --sitl-instance {vehicle_idx+1} --screen-base {v_prefix} --mavproxy-host-out 100.68.152.37")
             exit_commands.extend([f"screen -S {v_prefix}_{service} -X quit" for service in ["sitl", "mavproxy"]])
             vehicle_downlinks.append(f"127.0.0.1:{14570 + 10*vehicle_idx}")
 

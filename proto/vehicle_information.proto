@@ -24,8 +24,16 @@ enum Status {
     ARMED = 1;
 }
 
+enum Mode {
+    DRONE_GUIDED = 0 | 1<<4;
+    DRONE_ALT_HOLD = 1 | 1<<4;
+    
+    ROVER_AUTO = 0;
+    ROVER_MANUAL = 0;
+}
+
 message Velocity {
-    required float x = 1;
-    required float y = 2;
-    required float z = 3;
+    required float north = 1;
+    required float east = 2;
+    required float down = 3;
 }
