@@ -1,5 +1,7 @@
+pyzmq
 protobuf
 paho-mqtt
 prompt-toolkit
 rich
 dronekit
+psutil

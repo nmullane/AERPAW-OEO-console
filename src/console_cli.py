@@ -1,3 +1,7 @@
+# TODO this generally works when run on a local machine, but breaks on ssh terminals/remote sessions
+# is there a better framework that we could use to make the GUI?
+
+from argparse import ArgumentParser
 from asyncio import events
 import asyncio
 import json
@@ -72,13 +76,12 @@ def create_events_table(data_to_display):
 
 
 def _serialize_command(id, verb, params):
-    _serialize_arm_data = lambda params: {"armed": {"yes": True, "no": False}.get(params[0], None)}
     _serialize_arm_solo_data = lambda _: {}
     _serialize_disarm_data = lambda _: {}
     _serialize_mode_data = lambda params: {"mode": params[0]}
     _serialize_rtl_data = lambda _: {}
     _serialize_takeoff_data = lambda params: {"altitude": int(params[0])}
-    
+
     data_serializer = {
         "arm": _serialize_arm_solo_data,
         "disarm": _serialize_disarm_data,
@@ -95,12 +98,10 @@ def _serialize_command(id, verb, params):
         "data": data_serializer(params),
     }
 
+
 class CliApp:
     # data type ids from agent statuses to display
     data_to_display = []
-    # data_to_display = ["status", "velocity", "heartbeat"]
-    # data_to_display = ["velocity"]
-    # data_to_display = ["status"]
 
     def accept(self, buff):
         self.data_to_display = [self.input_field.text]
@@ -115,7 +116,7 @@ class CliApp:
 
         self.mqtt_client = None
 
-        self.connected_agents = {} # id: {idk}
+        self.connected_agents = {}  # id: {idk}
 
         @self.kb.add("c-d")
         def _exit(event):
@@ -136,17 +137,12 @@ class CliApp:
 
             def _handle_command(agent, cmds):
                 try:
-                    print(cmds)
                     _, verb = cmds[1:3]
                     params = cmds[3:]
-                    print("all")
-                    print(params)
-                    print(agent, verb, params)
                     serialized = _serialize_command(agent, verb, params)
                     if serialized == None:
                         self.print_event("INPUT COMMAND INVALID")
                         return
-                    print(agent, json.dumps(serialized))
                     self.mqtt_client.publish(
                         "OEO/vehicle_command", json.dumps(serialized)
                     )
@@ -178,7 +174,6 @@ class CliApp:
                         cmds_extend = [""] + cmds
                         _handle_command(agent_id, cmds_extend)
                         break
-
 
             self.logger.data_to_display = self.data_to_display
             # reset buffer contents
@@ -246,18 +241,19 @@ class CliApp:
             mouse_support=True,
         )
 
-    async def run_app(self):
+    async def run_app(self, broker_ip: str = "localhost"):
         # start the event logger to publish events
-        
-        self.broker = "localhost"
+
+        self.broker = broker_ip
         self.port = 1883
         self.mqtt_client = mqtt.Client(f"oeo_vehicle_cmd_pub")
         self.mqtt_client.connect(self.broker, self.port)
         self.mqtt_client.loop_start()
 
-        
         status_q = asyncio.Queue()
-        self.logger = await console_event_logger.main(status_q, self.data_to_display)
+        self.logger = await console_event_logger.main(
+            status_q, self.data_to_display, broker_ip=self.broker
+        )
         await self.logger.run()
         consumers = [asyncio.create_task(self.status_consumer()) for n in range(5)]
         table_updater = asyncio.create_task(self.update_table())
@@ -324,5 +320,15 @@ class CliApp:
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser(description="console CLI tool for aerpaw oeo")
+    parser.add_argument(
+        "--broker-ip",
+        required=False,
+        dest="broker_ip",
+        help="broker ip address (defaults to localhost)",
+        default="localhost",
+    )
+    args, _ = parser.parse_known_args()
+
     app = CliApp()
-    asyncio.run(app.run_app())
+    asyncio.run(app.run_app(broker_ip=args.broker_ip))

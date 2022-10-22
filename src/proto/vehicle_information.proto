@@ -25,11 +25,13 @@ enum Status {
 }
 
 enum Mode {
-    DRONE_GUIDED = 0 | 1<<4;
-    DRONE_ALT_HOLD = 1 | 1<<4;
+    DRONE_GUIDED    = 1;
+    DRONE_ALT_HOLD  = 2;
+    DRONE_MISC      = 4;
     
-    ROVER_AUTO = 0;
-    ROVER_MANUAL = 0;
+    ROVER_AUTO      = 8;
+    ROVER_MANUAL    = 16;
+    ROVER_MISC      = 32;
 }
 
 message Velocity {

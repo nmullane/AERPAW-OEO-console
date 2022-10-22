@@ -5,12 +5,11 @@ import zmq.asyncio
 import time
 import sys
 import asyncio
+import constants
 
 
 class RadioHelper:
-    """Dummy class to create data as if it was a radio helper"""
-
-    def __init__(self, port=5558, dt=0.1):
+    def __init__(self, port=constants.DEFAULT_RADIO_AGENT_PORT, dt=0.1):
         self.dt = dt
 
         # setup ZMQ context and socket
@@ -24,6 +23,7 @@ class RadioHelper:
         self.radio_message_data = pb.RadioInformationData()
 
     def update_data(self):
+        # TODO implement
         self.radio_message_data.compliant = True
         if random.random() < 0.01:
             self.radio_message_data.compliant = False
@@ -40,11 +40,3 @@ class RadioHelper:
 
     def run(self):
         asyncio.run(self.loop())
-
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        print("HI")
-    else:
-        helper = RadioHelper()
-        asyncio.run(helper.loop())

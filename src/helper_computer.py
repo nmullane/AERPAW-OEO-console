@@ -6,12 +6,12 @@ import zmq.asyncio
 import time
 import sys
 import asyncio
+import psutil
+import constants
 
 
 class ComputerHelper:
-    """Dummy class to create data as if it was a computer helper"""
-
-    def __init__(self, port=5557, dt=0.1, error_rate=0.9):
+    def __init__(self, port=constants.DEFAULT_COMPUTER_AGENT_PORT, dt=0.1):
         self.dt = dt
 
         # setup ZMQ context and sockets
@@ -23,20 +23,20 @@ class ComputerHelper:
 
         self.heartbeat = 0
         self.health_message_data = pb.ComputerHealthData()
-        self.error_rate = error_rate
 
     def update_data(self):
         self.heartbeat += 1
 
         self.health_message_data.heartbeat = self.heartbeat
-        # random cpu between 0% and 40%
-        self.health_message_data.cpu_utilization = random.random() * 40
-        # random memory between 20% and 50%
-        self.health_message_data.memory_utilization = random.random() * 30 + 20
 
+        self.health_message_data.cpu_utilization = psutil.cpu_percent()
+        self.health_message_data.memory_utilization = psutil.virtual_memory().percent
+
+        # TODO useless unless we know what to look for on the e-vm
+        # proposal: let experimenters use specific tags on the executables to tell ops what is what
         self.health_message_data.vehicle_script_running = False
-        self.health_message_data.radio_script_running = True
-        self.health_message_data.traffic_script_running = True
+        self.health_message_data.radio_script_running = False
+        self.health_message_data.traffic_script_running = False
 
     async def send_data(self):
         data = self.health_message_data.SerializeToString()
@@ -45,18 +45,9 @@ class ComputerHelper:
     async def loop(self):
         while True:
             # based on the error rate don't update data or send message
-            if random.random() > self.error_rate:
-                self.update_data()
-                await self.send_data()
+            self.update_data()
+            await self.send_data()
             await asyncio.sleep(self.dt)
 
     def run(self):
         asyncio.run(self.loop())
-
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        print("HI")
-    else:
-        helper = ComputerHelper()
-        asyncio.run(helper.loop())

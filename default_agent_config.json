@@ -1,0 +1,11 @@
+{
+    "helpers": {
+        "vehicle": {
+            "dronekit_link": ":17005"
+        },
+        "radio": {},
+        "computer": {}
+    },
+    "base_port": 5550,
+    "id": "uav-1"
+}

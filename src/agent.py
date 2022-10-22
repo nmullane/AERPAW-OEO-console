@@ -2,14 +2,10 @@ import proto.computer_health_pb2 as pb_computer
 import proto.radio_information_pb2 as pb_radio
 import proto.vehicle_information_pb2 as pb_vehicle
 import paho.mqtt.client as mqtt
-import time
-import random
-import sys
 import zmq
 import zmq.asyncio
 import asyncio
-
-PORT = 5550
+from constants import *
 
 
 class Agent:
@@ -17,11 +13,11 @@ class Agent:
         self,
         id,
         vehicle_helper=False,
-        vehicle_port=5556,
+        vehicle_port=DEFAULT_VEHICLE_AGENT_PORT,
         computer_helper=False,
-        computer_port=5557,
+        computer_port=DEFAULT_COMPUTER_AGENT_PORT,
         radio_helper=False,
-        radio_port=5558,
+        radio_port=DEFAULT_RADIO_AGENT_PORT,
         broker="localhost",
         mqtt_port=1883,
     ):
@@ -37,7 +33,6 @@ class Agent:
         self.context = zmq.asyncio.Context()
 
         if self.vehicle_helper:
-            print(vehicle_port)
             # connect to vehicle helper
             self.vehicle_socket = self.context.socket(zmq.PAIR)
             # assumes the vehicle helper is on localhost
@@ -86,7 +81,6 @@ class Agent:
             message = pb_vehicle.VehicleInformation()
             message.id = self.id
             message.data.CopyFrom(parse_data)
-            # TODO here
             self.vehicle_information_pub.publish(
                 "OEO/vehicle_information", message.SerializeToString()
             )
@@ -132,45 +126,3 @@ class Agent:
     def run(self):
         """Function to run all of the necessary loops"""
         asyncio.run(self.loop())
-
-
-class PortableAgent(Agent):
-    """Wrapper class to construct an agent with the correct subset of helpers
-    for a portable agent"""
-
-    def __init__(self, id, *args):
-        super(PortableAgent, self).__init__(
-            id,
-            *args,
-            vehicle_helper=True,
-            vehicle_port=PORT + id * 3,
-            computer_helper=True,
-            computer_port=PORT + id * 3 + 1,
-            radio_helper=True,
-            radio_port=PORT + id * 3 + 2,
-        )
-
-
-class FixedAgent(Agent):
-    """Wrapper class to construct an agent with the correct subset of helpers
-    for a fixed agent"""
-
-    def __init__(self, id, *args):
-        super(FixedAgent, self).__init__(
-            id,
-            *args,
-            computer_helper=True,
-            computer_port=PORT + id * 3,
-            radio_helper=True,
-            radio_port=PORT + id * 3 + 1,
-        )
-
-
-class CloudAgent(Agent):
-    """Wrapper class to construct an agent with the correct subset of helpers
-    for a cloud agent"""
-
-    def __init__(self, id, *args):
-        super(CloudAgent, self).__init__(
-            id, *args, computer_helper=True, computer_port=PORT + id * 3
-        )

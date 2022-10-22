@@ -44,7 +44,14 @@ class EventLogger(Thread):
     # changes in the stored values are printed as events
     event_vals = {}
 
-    def __init__(self, q: asyncio.Queue, table, live, data_to_display: List):
+    def __init__(
+        self,
+        q: asyncio.Queue,
+        table,
+        live,
+        data_to_display: List,
+        broker_ip: str = "localhost",
+    ):
         Thread.__init__(self)
         self.q = q
         self.computer_helper_sub = mqtt.Client("computer_helper_sub")
@@ -56,10 +63,10 @@ class EventLogger(Thread):
         self.data_to_display = data_to_display
 
         try:
-            self.computer_helper_sub.connect("localhost", 1883)
-            self.radio_helper_sub.connect("localhost", 1883)
-            self.vehicle_helper_sub.connect("localhost", 1883)
-            self.microservice_sub.connect("localhost", 1883)
+            self.computer_helper_sub.connect(broker_ip, 1883)
+            self.radio_helper_sub.connect(broker_ip, 1883)
+            self.vehicle_helper_sub.connect(broker_ip, 1883)
+            self.microservice_sub.connect(broker_ip, 1883)
 
             self.computer_helper_sub.subscribe([("OEO/node_health", 0)])
             self.radio_helper_sub.subscribe([("OEO/radio_information", 0)])
@@ -95,10 +102,6 @@ class EventLogger(Thread):
             return status[data_type]
         except:
             pass
-            # print("key not found")
-        # for dict in status:
-        #     if dict["type"] == data_type:
-        #         return dict["data"]
 
     def update_display_data_from_dict(self, agent_id, data):
         """Updates the table of display data based on the provided data dictionary
@@ -170,8 +173,6 @@ class EventLogger(Thread):
                 else:
                     self.display_data_vals[agent_id][data_id] = display_data
 
-        # print(self.display_data_vals)
-
     def parse_proto_msg(self, msg):
         """Extract the agent id and deserialize the required data field into a dict"""
         agent_id = str(msg.id)
@@ -198,9 +199,8 @@ class EventLogger(Thread):
         self.parse_proto_msg(msg)
 
     def on_message_print_helper(self, client, userdata, message):
-        """Deserialize vehicle information protobuf message"""
         print(message.payload)
-    
+
     # Load data from a microservice sending a JSON packet
     def on_message_json(self, client, userdata, message):
         """Adds to q using put_nowait. Could error"""
@@ -212,18 +212,10 @@ class EventLogger(Thread):
         # TODO this currently assumes every event is associated with an agent
 
 
-async def main(status_q: asyncio.Queue, data_to_display):
-    logger = EventLogger(status_q, None, None, data_to_display)
+async def main(status_q: asyncio.Queue, data_to_display, broker_ip: str = "localhost"):
+    logger = EventLogger(status_q, None, None, data_to_display, broker_ip=broker_ip)
     return logger
 
 
 if __name__ == "__main__":
     main()
-
-# def on_message(client, userdata, message):
-#     msg = json.loads(message.payload)
-
-#     # Assume msg is a dictionary and pass in all
-#     # key-value pairs to the AgentData constructor
-#     # this will need to be error checked in the future
-#     agent_statuses[msg["id"]] = msg["data"]
