@@ -11,7 +11,12 @@ import constants
 
 
 class ComputerHelper:
-    def __init__(self, port=constants.DEFAULT_COMPUTER_AGENT_PORT, dt=0.1):
+    def __init__(
+        self,
+        port=constants.DEFAULT_COMPUTER_AGENT_PORT,
+        dt=0.1,
+        broker_ip: str = "localhost",
+    ):
         self.dt = dt
 
         # setup ZMQ context and sockets

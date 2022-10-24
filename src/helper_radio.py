@@ -9,7 +9,12 @@ import constants
 
 
 class RadioHelper:
-    def __init__(self, port=constants.DEFAULT_RADIO_AGENT_PORT, dt=0.1):
+    def __init__(
+        self,
+        port=constants.DEFAULT_RADIO_AGENT_PORT,
+        dt=0.1,
+        broker_ip: str = "localhost",
+    ):
         self.dt = dt
 
         # setup ZMQ context and socket

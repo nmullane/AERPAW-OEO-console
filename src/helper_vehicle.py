@@ -19,6 +19,7 @@ class VehicleHelper:
         dt=0.1,
         downlink: str = None,
         id: str = None,
+        broker_ip: str = "localhost",
     ):
         # TODO parse any configuration things in from a config file loaded by the agent
         self.dt = dt  # dt is delay between samples
@@ -41,7 +42,7 @@ class VehicleHelper:
         self.vehicle_command_sub = mqtt.Client("vehicle_command_sub")
 
         try:
-            self.vehicle_command_sub.connect("localhost", 1883)
+            self.vehicle_command_sub.connect(broker_ip, 1883)
             self.vehicle_command_sub.subscribe([("OEO/vehicle_command", 0)])
             self.vehicle_command_sub.on_message = self.receive_data_handler
         except ConnectionRefusedError as e:
@@ -83,8 +84,7 @@ class VehicleHelper:
         except Exception as e:
             print(e)
             return
-        print(payload_data, self.id)
-        if payload_data["node_id"] != self.id:
+        if payload_data["node_id"] != str(self.id):
             return
         verb = payload_data["verb"]
         handler = {
@@ -114,7 +114,8 @@ class VehicleHelper:
         self._dk_vehicle.armed = False
 
     def mode_handler(self, payload_data):
-        mode = payload_data["data"]["mode"]
+        mode = str(payload_data["data"]["mode"])
+        mode = mode.upper()
         if mode not in ["GUIDED", "MANUAL", "ALT_HOLD"]:
             print("unsupported mode " + mode)
             return

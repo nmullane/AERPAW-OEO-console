@@ -114,14 +114,19 @@ class Agent:
             )
 
     async def loop(self):
+        loops = []
         if self.vehicle_helper:
             vehicle_loop = asyncio.create_task(self.vehicle_loop())
+            loops.append(vehicle_loop)
         if self.radio_helper:
             radio_loop = asyncio.create_task(self.radio_loop())
+            loops.append(radio_loop)
         if self.computer_helper:
             computer_loop = asyncio.create_task(self.computer_loop())
-
-        await computer_loop
+            loops.append(computer_loop)
+        if len(loops) == 0:
+            return
+        await loops[0]
 
     def run(self):
         """Function to run all of the necessary loops"""

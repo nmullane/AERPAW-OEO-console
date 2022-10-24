@@ -147,7 +147,7 @@ class CliApp:
                         "OEO/vehicle_command", json.dumps(serialized)
                     )
                 except Exception as e:
-                    print(e)
+                    self.print_event(e)
 
             if len(cmds) < 2:
                 self.print_event("INPUT COMMAND MUST INCLUDE AN ARGUMENT")

@@ -24,12 +24,12 @@ class AgentConfig:
             "computer": {}
         },
         "base_port": 17171,
-        "id": "drone-1"
+        "id": 1
     }
     """
 
     oeo_server_ip: str = None
-    agent_id: str = None
+    agent_id: int = None
     base_port: int = DEFAULT_PORT
 
     vehicle_helper: bool = False
@@ -42,6 +42,8 @@ class AgentConfig:
     def validate(self):
         if None in [self.agent_id, self.oeo_server_ip, self.base_port]:
             raise Exception(f"invalid AgentConfig provided: {self}")
+        if type(self.agent_id) != int:
+            raise Exception(f"agent id {self.agent_id} must be an int")
 
 
 @dataclass
@@ -52,10 +54,10 @@ class AgentConstruct:
     radio_helper: RadioHelper = None
 
     def start_threads(self):
-        threading.Thread(target=self.agent.run).stat()
+        threading.Thread(target=self.agent.run).start()
         for helper in [self.vehicle_helper, self.computer_helper, self.radio_helper]:
-            if helper:
-                threading.Thread(target=self.helper.run).start()
+            if helper is not None:
+                threading.Thread(target=helper.run).start()
 
 
 def generate_agent_from_config(config: AgentConfig) -> AgentConstruct:
@@ -76,14 +78,15 @@ def generate_agent_from_config(config: AgentConfig) -> AgentConstruct:
 
     if config.vehicle_helper:
         agent.vehicle_helper = VehicleHelper(
-            port=config.base_port,
+            port=config.base_port + 1,
             downlink=config.dronekit_link,
-            id=f"{config.agent_id}",
+            id=config.agent_id,
+            broker_ip=config.oeo_server_ip,
         )
     if config.computer_helper:
-        agent.computer_helper = ComputerHelper(port=config.base_port + 1)
+        agent.computer_helper = ComputerHelper(port=config.base_port + 2)
     if config.radio_helper:
-        agent.radio_helper = RadioHelper(port=config.base_port + 2)
+        agent.radio_helper = RadioHelper(port=config.base_port + 3)
 
     return agent
 
@@ -94,15 +97,17 @@ def _load_config_from_env() -> AgentConfig:
     """
     config = AgentConfig()
     if "CVM_AGENT_ID" in os.environ:
-        config.agent_id = os.environ["CVM_AGENT_ID"]
+        config.agent_id = int(os.environ["CVM_AGENT_ID"])
+    if "CVM_AGENT_OEO_SERVER_IP" in os.environ:
+        config.oeo_server_ip = os.environ["CVM_AGENT_OEO_SERVER_IP"]
     if "CVM_AGENT_BASE_PORT" in os.environ:
         config.base_port = os.environ["CVM_AGENT_BASE_PORT"]
-    if "CVM_AGENT_ENABLE_VEHICLE" in os.environ:
+    if "CVM_AGENT_VEHICLE_ENABLE" in os.environ:
         config.vehicle_helper = True
         config.dronekit_link = os.environ["CVM_AGENT_VEHICLE_DRONEKIT_LINK"]
-    if "CVM_AGENT_ENABLE_RADIO" in os.environ:
+    if "CVM_AGENT_RADIO_ENABLE" in os.environ:
         config.radio_helper = True
-    if "CVM_AGENT_ENABLE_COMPUTER" in os.environ:
+    if "CVM_AGENT_COMPUTER_ENABLE" in os.environ:
         config.computer_helper = True
     return config
 
@@ -143,5 +148,6 @@ if __name__ == "__main__":
     else:
         # generate config from environment variables
         config = _load_config_from_env()
+    print(f"running with agent config:\n{config}")
     agent = generate_agent_from_config(config)
     agent.start_threads()
